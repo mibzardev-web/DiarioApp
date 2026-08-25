@@ -1,5 +1,5 @@
 import { Text } from "react-native";
-import useThemedColor from "../../hooks/useThemeColor";
+import useThemedColor from "../../hooks/useThemedColor";
 import globalStyles from "../../styles/globalStyles";
 
 const ThemedText = ({
