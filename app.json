@@ -14,7 +14,8 @@
         "backgroundColor": "#B79CE8",
         "foregroundImage": "./assets/adaptive-icon.png",
         "monochromeImage": "./assets/adaptive-icon-mono.png"
-      }
+      },
+      "package": "com.mibzardev.DiarioApp"
     },
     "web": {
       "favicon": "./assets/icon.png"
