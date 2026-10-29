@@ -4,9 +4,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  PanResponder,
   useWindowDimensions,
 } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useIsFocused } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -42,7 +43,7 @@ const GameScreen = () => {
   const [bonus, setBonus] = useState(0);
   const [puzzle, setPuzzle] = useState(null);
   const [found, setFound] = useState([]); // [{ idx, cells }]
-  const [selStart, setSelStart] = useState(null);
+  const [sel, setSel] = useState(null); // { start, end } mientras el dedo pinta
   const [record, setRecord] = useState({ score: 0, level: 0 });
   const [result, setResult] = useState(null);
 
@@ -69,7 +70,7 @@ const GameScreen = () => {
   const startLevel = (lvl) => {
     setPuzzle(generatePuzzle(lvl));
     setFound([]);
-    setSelStart(null);
+    setSel(null);
     setLevel(lvl);
     setTimeLeft(getLevelConfig(lvl).time);
     setPhase("playing");
@@ -81,13 +82,12 @@ const GameScreen = () => {
     startLevel(1);
   };
 
-  const onCellPress = (r, c) => {
-    if (phase !== "playing") return;
-    if (!selStart) return setSelStart({ r, c });
-    if (selStart.r === r && selStart.c === c) return setSelStart(null);
+  const gridWidth = Math.min(width - 32, 440);
+  const cellSize = puzzle ? Math.floor(gridWidth / puzzle.size) : 0;
 
-    const cells = getLine(selStart, { r, c });
-    if (!cells) return setSelStart({ r, c }); // no es una línea: empieza de nuevo aquí
+  // Termina el trazo del dedo: revisa si las letras pintadas forman una palabra
+  const finishSelection = (cells) => {
+    if (phase !== "playing" || !cells || cells.length < 2) return;
 
     const text = cells.map((p) => puzzle.grid[p.r][p.c]).join("");
     const reversed = [...text].reverse().join("");
@@ -96,7 +96,6 @@ const GameScreen = () => {
       (w, i) => !foundIdx.includes(i) && (w.letters === text || w.letters === reversed),
     );
 
-    setSelStart(null);
     if (idx === -1) {
       setScore((s) => Math.max(0, s - WRONG_PENALTY));
       return;
@@ -113,6 +112,52 @@ const GameScreen = () => {
       setPhase("levelDone");
     }
   };
+
+  // El PanResponder se crea una sola vez, por eso lee el estado más reciente desde un ref
+  const latest = useRef({});
+  latest.current = { phase, size: puzzle?.size ?? 0, cellSize, finishSelection };
+  const selRef = useRef(null);
+
+  const cellAt = (e) => {
+    const { size, cellSize: cs } = latest.current;
+    const { locationX, locationY } = e.nativeEvent;
+    const r = Math.floor(locationY / cs);
+    const c = Math.floor(locationX / cs);
+    return r < 0 || c < 0 || r >= size || c >= size ? null : { r, c };
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => latest.current.phase === "playing",
+      onMoveShouldSetPanResponder: () => latest.current.phase === "playing",
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: (e) => {
+        const cell = cellAt(e);
+        if (!cell) return;
+        selRef.current = { start: cell, end: cell };
+        setSel(selRef.current);
+      },
+      onPanResponderMove: (e) => {
+        const cur = selRef.current;
+        const cell = cur && cellAt(e);
+        // Solo avanza si el dedo sigue en línea recta (horizontal, vertical o diagonal)
+        if (!cell || !getLine(cur.start, cell)) return;
+        if (cell.r === cur.end.r && cell.c === cur.end.c) return;
+        selRef.current = { start: cur.start, end: cell };
+        setSel(selRef.current);
+      },
+      onPanResponderRelease: () => {
+        const cur = selRef.current;
+        selRef.current = null;
+        setSel(null);
+        if (cur) latest.current.finishSelection(getLine(cur.start, cur.end));
+      },
+      onPanResponderTerminate: () => {
+        selRef.current = null;
+        setSel(null);
+      },
+    }),
+  ).current;
 
   const renderRecordCard = () => (
     <View style={styles.recordCard}>
@@ -196,17 +241,18 @@ const GameScreen = () => {
   }
 
   // phase === "playing"
-  const gridWidth = Math.min(width - 32, 440);
-  const cellSize = Math.floor(gridWidth / puzzle.size);
   const cellColor = {};
   found.forEach(({ idx, cells }) =>
     cells.forEach(({ r, c }) => (cellColor[`${r}-${c}`] = FOUND_COLORS[idx % FOUND_COLORS.length])),
   );
   const foundIdx = found.map((f) => f.idx);
+  const selCells = sel ? getLine(sel.start, sel.end) : [];
+  const selKeys = new Set(selCells.map(({ r, c }) => `${r}-${c}`));
+  const previewText = selCells.map(({ r, c }) => puzzle.grid[r][c]).join("");
   const lowTime = timeLeft <= 15;
 
   return (
-    <ScrollView contentContainerStyle={styles.game}>
+    <ScrollView contentContainerStyle={styles.game} scrollEnabled={!sel}>
       <View style={styles.hud}>
         <View style={styles.hudItem}>
           <MaterialCommunityIcons name="signal-cellular-3" size={18} color={Palette.dark} />
@@ -228,20 +274,30 @@ const GameScreen = () => {
         </View>
       </View>
 
-      <View style={[styles.grid, { width: cellSize * puzzle.size }]}>
+      <View style={styles.preview}>
+        <MaterialCommunityIcons name="draw" size={18} color={Palette.primary} />
+        <Text style={styles.previewText} numberOfLines={1}>
+          {previewText || "Desliza el dedo sobre las letras"}
+        </Text>
+      </View>
+
+      {/* Los hijos no reciben toques: el dedo siempre lo recibe la cuadrícula completa */}
+      <View
+        {...panResponder.panHandlers}
+        style={[styles.grid, { width: cellSize * puzzle.size }]}
+      >
         {puzzle.grid.map((row, r) => (
-          <View key={r} style={styles.gridRow}>
+          <View key={r} style={styles.gridRow} pointerEvents="none">
             {row.map((letter, c) => {
-              const isSel = selStart && selStart.r === r && selStart.c === c;
+              const key = `${r}-${c}`;
+              const isSel = selKeys.has(key);
               return (
-                <TouchableOpacity
+                <View
                   key={c}
-                  activeOpacity={0.7}
-                  onPress={() => onCellPress(r, c)}
                   style={[
                     styles.cell,
                     { width: cellSize, height: cellSize },
-                    cellColor[`${r}-${c}`] && { backgroundColor: cellColor[`${r}-${c}`] },
+                    cellColor[key] && { backgroundColor: cellColor[key] },
                     isSel && styles.cellSelected,
                   ]}
                 >
@@ -254,7 +310,7 @@ const GameScreen = () => {
                   >
                     {letter}
                   </Text>
-                </TouchableOpacity>
+                </View>
               );
             })}
           </View>
@@ -394,7 +450,26 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: Palette.border,
   },
-  cellSelected: { backgroundColor: Palette.primary },
+  cellSelected: { backgroundColor: "#B79CE8" },
+  preview: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    alignSelf: "stretch",
+    backgroundColor: "#FFF",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 10,
+    minHeight: 40,
+  },
+  previewText: {
+    flex: 1,
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 16,
+    letterSpacing: 2,
+    color: Palette.dark,
+  },
   cellText: {
     fontFamily: "Poppins_600SemiBold",
     color: Palette.dark,
