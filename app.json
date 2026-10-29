@@ -25,6 +25,17 @@
       "expo-status-bar",
       "expo-sharing",
       "expo-asset"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "8ee376f0-a4e7-4bd4-b48e-71932bce63eb"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/8ee376f0-a4e7-4bd4-b48e-71932bce63eb"
+    }
   }
 }
