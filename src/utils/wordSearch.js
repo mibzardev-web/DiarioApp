@@ -14,7 +14,7 @@ const shuffle = (arr) => {
 };
 
 const tryPlace = (grid, size, letters, directions) => {
-  for (let attempt = 0; attempt < 150; attempt++) {
+  for (let attempt = 0; attempt < 300; attempt++) {
     const [dr, dc] = directions[randInt(directions.length)];
     const r0 = randInt(size);
     const c0 = randInt(size);
@@ -41,32 +41,59 @@ const tryPlace = (grid, size, letters, directions) => {
   return null;
 };
 
-// Arma una sopa nueva con palabras al azar del nivel y en posiciones al azar
-export const generatePuzzle = (level) => {
-  const { size, count, directions, words } = getLevelConfig(level);
+// Un intento de armar la sopa; devuelve null si alguna palabra no cupo
+const buildPuzzle = ({ size, directions, words }, count, needDiagonal, rounds) => {
+  const diagonals = directions.filter(([dr, dc]) => dr !== 0 && dc !== 0);
 
-  for (let round = 0; round < 30; round++) {
+  for (let round = 0; round < rounds; round++) {
     const grid = Array.from({ length: size }, () => Array(size).fill(null));
     // Las más largas primero para que quepan mejor
     const chosen = shuffle(words)
       .slice(0, count)
       .sort((a, b) => b.replace(/ /g, "").length - a.replace(/ /g, "").length);
 
+    // Las palabras más cortas van en diagonal y se colocan primero, cuando el
+    // tablero aún está vacío y caben mejor
+    const nDiag = Math.min(diagonals.length ? needDiagonal : 0, chosen.length);
+    const diagonalWords = chosen.slice(chosen.length - nDiag);
+    const ordered = [...diagonalWords, ...chosen.slice(0, chosen.length - nDiag)];
+
     const placed = [];
-    for (const display of chosen) {
+    for (const display of ordered) {
       const letters = display.replace(/ /g, "");
-      const cells = tryPlace(grid, size, letters, directions);
+      const cells = tryPlace(
+        grid,
+        size,
+        letters,
+        diagonalWords.includes(display) ? diagonals : directions,
+      );
       if (!cells) break;
       placed.push({ display, letters, cells });
     }
 
-    if (placed.length === chosen.length) {
+    if (placed.length === ordered.length) {
       for (let r = 0; r < size; r++) {
         for (let c = 0; c < size; c++) {
           if (grid[r][c] === null) grid[r][c] = ALPHABET[randInt(ALPHABET.length)];
         }
       }
       return { size, grid, words: shuffle(placed) };
+    }
+  }
+  return null;
+};
+
+// Arma una sopa nueva con palabras al azar del nivel y en posiciones al azar.
+// Siempre lleva diagonales (2 en los niveles de frases); si no se logra, relaja
+// los requisitos poco a poco para que el juego nunca se quede sin sopa.
+export const generatePuzzle = (level) => {
+  const config = getLevelConfig(level);
+  const wantDiagonal = level >= 5 ? 2 : 1;
+
+  for (let count = config.count; count >= 1; count--) {
+    for (const needDiagonal of [wantDiagonal, 1, 0]) {
+      const puzzle = buildPuzzle(config, count, needDiagonal, 40);
+      if (puzzle) return puzzle;
     }
   }
   throw new Error("No se pudo generar la sopa de letras");

@@ -2,6 +2,7 @@ import {
   View,
   Text,
   StyleSheet,
+  Alert,
   TouchableOpacity,
   ScrollView,
   PanResponder,
@@ -14,7 +15,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Palette } from "../constants/Colors";
 import { POINTS_PER_WORD, WRONG_PENALTY, getLevelConfig } from "../data/words";
 import { generatePuzzle, getLine } from "../utils/wordSearch";
-import { getRecord, saveRecord } from "../storage/gameRecord";
+import { getRecord, getLastGame, saveGame } from "../storage/gameRecord";
 
 // Un color pastel por cada palabra encontrada
 const FOUND_COLORS = [
@@ -45,10 +46,13 @@ const GameScreen = () => {
   const [found, setFound] = useState([]); // [{ idx, cells }]
   const [sel, setSel] = useState(null); // { start, end } mientras el dedo pinta
   const [record, setRecord] = useState({ score: 0, level: 0 });
+  const [lastGame, setLastGame] = useState({ score: 0, level: 0 });
   const [result, setResult] = useState(null);
+  const [endedByUser, setEndedByUser] = useState(false);
 
   useEffect(() => {
     getRecord().then(setRecord);
+    getLastGame().then(setLastGame);
   }, []);
 
   // El tiempo corre solo mientras se juega y la pestaña está a la vista
@@ -58,14 +62,31 @@ const GameScreen = () => {
     return () => clearInterval(id);
   }, [phase, isFocused]);
 
-  useEffect(() => {
-    if (phase !== "playing" || timeLeft > 0) return;
+  // Cierra la partida (por tiempo o porque el jugador quiso terminar) y guarda el récord
+  const finishGame = (byUser) => {
+    setEndedByUser(byUser);
     setPhase("over");
-    saveRecord(score, level).then((res) => {
+    saveGame(score, level).then((res) => {
       setResult(res);
+      setLastGame({ score, level });
       if (res.isNewRecord) setRecord({ score, level });
     });
-  }, [phase, timeLeft, score, level]);
+  };
+
+  useEffect(() => {
+    if (phase === "playing" && timeLeft <= 0) finishGame(false);
+  }, [phase, timeLeft]);
+
+  const confirmEnd = () => {
+    Alert.alert(
+      "Terminar juego",
+      `Llevas ${score} pts en el nivel ${level}. Se guardará tu puntaje si supera tu récord.`,
+      [
+        { text: "Seguir jugando", style: "cancel" },
+        { text: "Terminar", style: "destructive", onPress: () => finishGame(true) },
+      ],
+    );
+  };
 
   const startLevel = (lvl) => {
     setPuzzle(generatePuzzle(lvl));
@@ -79,6 +100,7 @@ const GameScreen = () => {
   const startGame = () => {
     setScore(0);
     setResult(null);
+    setEndedByUser(false);
     startLevel(1);
   };
 
@@ -159,17 +181,30 @@ const GameScreen = () => {
     }),
   ).current;
 
-  const renderRecordCard = () => (
+  const renderRecordCard = (showLast = false) => (
     <View style={styles.recordCard}>
-      <MaterialCommunityIcons name="trophy" size={28} color="#F2B84B" />
-      <View style={styles.recordText}>
-        <Text style={styles.recordLabel}>Tu récord</Text>
-        <Text style={styles.recordValue}>
-          {record.score > 0
-            ? `${record.score} pts · nivel ${record.level}`
-            : "Aún no tienes récord"}
-        </Text>
+      <View style={styles.recordRow}>
+        <MaterialCommunityIcons name="trophy" size={28} color="#F2B84B" />
+        <View style={styles.recordText}>
+          <Text style={styles.recordLabel}>Tu récord</Text>
+          <Text style={styles.recordValue}>
+            {record.score > 0
+              ? `${record.score} pts · nivel ${record.level}`
+              : "Aún no tienes récord"}
+          </Text>
+        </View>
       </View>
+      {showLast && lastGame.score + lastGame.level > 0 && (
+        <View style={styles.recordRow}>
+          <MaterialCommunityIcons name="history" size={28} color={Palette.primary} />
+          <View style={styles.recordText}>
+            <Text style={styles.recordLabel}>Última partida</Text>
+            <Text style={styles.recordValue}>
+              {lastGame.score} pts · nivel {lastGame.level}
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 
@@ -181,10 +216,10 @@ const GameScreen = () => {
         </View>
         <Text style={styles.title}>Sopa de letras</Text>
         <Text style={styles.subtitle}>
-          Encuentra todas las palabras antes de que se acabe el tiempo. Toca la
-          primera letra y luego la última. Cada nivel es más difícil.
+          Encuentra todas las palabras antes de que se acabe el tiempo. Desliza
+          el dedo sobre las letras para pintarlas. Cada nivel es más difícil.
         </Text>
-        {renderRecordCard()}
+        {renderRecordCard(true)}
         <TouchableOpacity style={styles.button} onPress={startGame}>
           <MaterialCommunityIcons name="play" size={24} color="#FFF" />
           <Text style={styles.buttonText}>Jugar</Text>
@@ -198,11 +233,13 @@ const GameScreen = () => {
     return (
       <View style={styles.center}>
         <MaterialCommunityIcons
-          name={result?.isNewRecord ? "party-popper" : "timer-sand-complete"}
+          name={result?.isNewRecord ? "party-popper" : endedByUser ? "flag-checkered" : "timer-sand-complete"}
           size={64}
           color={Palette.primary}
         />
-        <Text style={styles.title}>¡Se acabó el tiempo!</Text>
+        <Text style={styles.title}>
+          {endedByUser ? "Juego terminado" : "¡Se acabó el tiempo!"}
+        </Text>
         <Text style={styles.bigScore}>{score} pts</Text>
         <Text style={styles.subtitle}>Llegaste al nivel {level}</Text>
 
@@ -336,6 +373,11 @@ const GameScreen = () => {
           );
         })}
       </View>
+
+      <TouchableOpacity style={styles.endButton} onPress={confirmEnd}>
+        <MaterialCommunityIcons name="flag-checkered" size={20} color={Palette.danger} />
+        <Text style={styles.endButtonText}>Terminar juego</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 };
@@ -378,13 +420,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderRadius: 16,
     padding: 14,
-    flexDirection: "row",
-    alignItems: "center",
     gap: 12,
     marginVertical: 8,
     elevation: 2,
     alignSelf: "stretch",
   },
+  recordRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   recordText: { flex: 1 },
   recordLabel: { fontSize: 12, color: Palette.subText },
   recordValue: {
@@ -473,6 +514,24 @@ const styles = StyleSheet.create({
   cellText: {
     fontFamily: "Poppins_600SemiBold",
     color: Palette.dark,
+  },
+  endButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    alignSelf: "stretch",
+    borderWidth: 1.5,
+    borderColor: Palette.danger,
+    backgroundColor: Palette.dangerBg,
+    borderRadius: 14,
+    paddingVertical: 12,
+    marginTop: 24,
+  },
+  endButtonText: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 15,
+    color: Palette.danger,
   },
   listTitle: {
     alignSelf: "flex-start",

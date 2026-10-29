@@ -119,7 +119,7 @@ export const LEVELS = [
   },
   {
     // Nivel 6 en adelante: frases largas
-    size: 12,
+    size: 13,
     count: 8,
     directions: TODAS,
     words: [
