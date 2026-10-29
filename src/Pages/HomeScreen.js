@@ -13,6 +13,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Palette } from "../constants/Colors";
 import { getDiaries, deleteDiary } from "../storage/diaries";
 import { exportDiaryPdf } from "../utils/diaryPdf";
+import { formatDateTime } from "../utils/dates";
 
 const HomeScreen = ({ navigation }) => {
   const [diaries, setDiaries] = useState([]);
@@ -105,63 +106,92 @@ const HomeScreen = ({ navigation }) => {
         }
         renderItem={({ item }) => (
           <View style={styles.card}>
-            <View style={styles.cardIcon}>
-              <MaterialCommunityIcons
-                name="calendar-text"
-                size={26}
-                color={Palette.primary}
-              />
-            </View>
-
-            <View style={styles.cardBody}>
-              <Text style={styles.cardDate}>{item.fecha}</Text>
-              {!!item.campoFormativo && (
-                <View style={styles.row}>
-                  <MaterialCommunityIcons
-                    name="shape-outline"
-                    size={14}
-                    color={Palette.subText}
-                  />
-                  <Text style={styles.cardSub} numberOfLines={1}>
-                    {item.campoFormativo}
-                  </Text>
-                </View>
-              )}
-              {!!item.pda && (
-                <View style={styles.row}>
-                  <MaterialCommunityIcons
-                    name="target"
-                    size={14}
-                    color={Palette.subText}
-                  />
-                  <Text style={styles.cardSub} numberOfLines={1}>
-                    {item.pda}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.actions}>
-              <TouchableOpacity
-                style={[styles.actionBtn, styles.pdfBtn]}
-                onPress={() => downloadPdf(item)}
-              >
+            <View style={styles.cardTop}>
+              <View style={styles.cardIcon}>
                 <MaterialCommunityIcons
-                  name="file-pdf-box"
-                  size={22}
+                  name="calendar-text"
+                  size={26}
                   color={Palette.primary}
                 />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionBtn, styles.deleteBtn]}
-                onPress={() => confirmDelete(item)}
-              >
+              </View>
+
+              <View style={styles.cardBody}>
+                <Text style={styles.cardDate}>{item.fecha}</Text>
+                {!!item.campoFormativo && (
+                  <View style={styles.row}>
+                    <MaterialCommunityIcons
+                      name="shape-outline"
+                      size={14}
+                      color={Palette.subText}
+                    />
+                    <Text style={styles.cardSub} numberOfLines={1}>
+                      {item.campoFormativo}
+                    </Text>
+                  </View>
+                )}
+                {!!item.pda && (
+                  <View style={styles.row}>
+                    <MaterialCommunityIcons
+                      name="target"
+                      size={14}
+                      color={Palette.subText}
+                    />
+                    <Text style={styles.cardSub} numberOfLines={1}>
+                      {item.pda}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.cardFooter}>
+              <View style={styles.editedBox}>
                 <MaterialCommunityIcons
-                  name="trash-can-outline"
-                  size={22}
-                  color={Palette.danger}
+                  name="clock-edit-outline"
+                  size={16}
+                  color={Palette.subText}
                 />
-              </TouchableOpacity>
+                <Text style={styles.editedText} numberOfLines={2}>
+                  {item.updatedAt
+                    ? `Última edición: ${formatDateTime(item.updatedAt)}`
+                    : "Sin ediciones"}
+                </Text>
+              </View>
+
+              <View style={styles.actions}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.pdfBtn]}
+                  onPress={() => downloadPdf(item)}
+                >
+                  <MaterialCommunityIcons
+                    name="file-pdf-box"
+                    size={22}
+                    color={Palette.primary}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.editBtn]}
+                  onPress={() =>
+                    navigation.navigate("EditDiaryScreen", { diary: item })
+                  }
+                >
+                  <MaterialCommunityIcons
+                    name="pencil-outline"
+                    size={22}
+                    color={Palette.dark}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.deleteBtn]}
+                  onPress={() => confirmDelete(item)}
+                >
+                  <MaterialCommunityIcons
+                    name="trash-can-outline"
+                    size={22}
+                    color={Palette.danger}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         )}
@@ -246,10 +276,21 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 12,
     marginBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
     elevation: 2,
   },
+  cardTop: { flexDirection: "row", alignItems: "center" },
+  cardFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: Palette.tint,
+  },
+  editedBox: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
+  editedText: { flex: 1, fontSize: 12, color: Palette.subText },
   cardIcon: {
     backgroundColor: Palette.tint,
     width: 46,
@@ -266,7 +307,7 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
   cardSub: { flex: 1, fontSize: 12, color: Palette.subText },
-  actions: { gap: 6 },
+  actions: { flexDirection: "row", gap: 6 },
   actionBtn: {
     width: 36,
     height: 36,
@@ -275,6 +316,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   pdfBtn: { backgroundColor: Palette.tint },
+  editBtn: { backgroundColor: Palette.tint },
   deleteBtn: { backgroundColor: Palette.dangerBg },
 });
 

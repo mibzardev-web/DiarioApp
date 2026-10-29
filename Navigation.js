@@ -17,6 +17,7 @@ import useThemedColor from "./src/hooks/useThemeColor.js";
 // Screens Home
 import HomeScreen from "./src/Pages/HomeScreen.js";
 import CreateDiaryScreen from "./src/Pages/CreateDiaryScreen.js";
+import EditDiaryScreen from "./src/Pages/EditDiaryScreen.js";
 import GameScreen from "./src/Pages/GameScreen.js";
 
 //Stacks
@@ -54,6 +55,11 @@ function MyStackPrincipal() {
         name="CreateDiaryScreen"
         component={CreateDiaryScreen}
         options={{ title: "Nuevo diario" }}
+      />
+      <Stack.Screen
+        name="EditDiaryScreen"
+        component={EditDiaryScreen}
+        options={{ title: "Editar diario" }}
       />
     </Stack.Navigator>
   );
