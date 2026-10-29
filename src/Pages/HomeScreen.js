@@ -5,18 +5,26 @@ import {
   TouchableOpacity,
   FlatList,
   Alert,
+  TextInput,
 } from "react-native";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { Palette } from "../constants/Colors";
 import { getDiaries, deleteDiary } from "../storage/diaries";
 import { exportDiaryPdf } from "../utils/diaryPdf";
-import { formatDateTime } from "../utils/dates";
+import { formatDateTime, matchesDate } from "../utils/dates";
 
 const HomeScreen = ({ navigation }) => {
   const [diaries, setDiaries] = useState([]);
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(
+    () => diaries.filter((d) => matchesDate(d.fecha, query)),
+    [diaries, query],
+  );
+  const searching = query.trim().length > 0;
 
   const loadDiaries = useCallback(async () => {
     setDiaries(await getDiaries());
@@ -78,8 +86,32 @@ const HomeScreen = ({ navigation }) => {
         <MaterialCommunityIcons name="history" size={22} color={Palette.dark} />
         <Text style={styles.sectionTitle}>Historial de diarios</Text>
         <View style={styles.badge}>
-          <Text style={styles.badgeText}>{diaries.length}</Text>
+          <Text style={styles.badgeText}>
+            {searching ? `${filtered.length}/${diaries.length}` : diaries.length}
+          </Text>
         </View>
+      </View>
+
+      <View style={styles.searchBox}>
+        <MaterialCommunityIcons name="magnify" size={22} color={Palette.subText} />
+        <TextInput
+          style={styles.searchInput}
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Buscar por fecha (ej. 28, lunes, 28/09/2026)"
+          placeholderTextColor={Palette.muted}
+          returnKeyType="search"
+          autoCorrect={false}
+        />
+        {searching && (
+          <TouchableOpacity onPress={() => setQuery("")} hitSlop={10}>
+            <MaterialCommunityIcons
+              name="close-circle"
+              size={20}
+              color={Palette.muted}
+            />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -87,20 +119,26 @@ const HomeScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <FlatList
-        data={diaries}
+        data={filtered}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        ListHeaderComponent={renderHeader}
+        keyboardShouldPersistTaps="handled"
+        // Se pasa como elemento (no como componente) para que el teclado no se cierre al escribir
+        ListHeaderComponent={renderHeader()}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
             <MaterialCommunityIcons
-              name="book-open-page-variant-outline"
+              name={searching ? "calendar-search" : "book-open-page-variant-outline"}
               size={56}
               color={Palette.border}
             />
-            <Text style={styles.emptyTitle}>Aún no hay diarios</Text>
+            <Text style={styles.emptyTitle}>
+              {searching ? "Sin resultados" : "Aún no hay diarios"}
+            </Text>
             <Text style={styles.empty}>
-              Toca "Crear un nuevo diario" para escribir el primero.
+              {searching
+                ? "No hay diarios con esa fecha. Prueba con otro día, mes o año."
+                : 'Toca "Crear un nuevo diario" para escribir el primero.'}
             </Text>
           </View>
         }
@@ -263,6 +301,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   badgeText: { color: Palette.primary, fontWeight: "700", fontSize: 13 },
+  searchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FFF",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    elevation: 2,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: Palette.text,
+  },
   emptyBox: { alignItems: "center", marginTop: 30, paddingHorizontal: 20 },
   emptyTitle: {
     fontFamily: "Poppins_600SemiBold",
