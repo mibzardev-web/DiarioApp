@@ -17,7 +17,7 @@ import useThemedColor from "./src/hooks/useThemeColor.js";
 // Screens Home
 import HomeScreen from "./src/Pages/HomeScreen.js";
 import CreateDiaryScreen from "./src/Pages/CreateDiaryScreen.js";
-import SettingScreen from "./src/Pages/SettingScreen.js";
+import GameScreen from "./src/Pages/GameScreen.js";
 
 //Stacks
 const Stack = createNativeStackNavigator();
@@ -67,6 +67,10 @@ function TabsNavigator() {
       screenOptions={{
         tabBarActiveTintColor: Palette.primary,
         tabBarInactiveTintColor: Palette.muted,
+        headerStyle: {
+          backgroundColor: Palette.dark, // Color de fondo del header
+        },
+        headerTintColor: "#FFF", // Color del texto del header
         tabBarStyle: {
           backgroundColor: "#FFF",
           display: showTabBar ? "flex" : "none",
@@ -94,19 +98,19 @@ function TabsNavigator() {
         }}
       />
       <Tab.Screen
-        name="Setting"
-        component={SettingScreen}
+        name="Juego"
+        component={GameScreen}
         options={{
-          headerShown: false,
+          headerShown: true,
           tabBarLabel: ({ color }) => (
             <Text
               style={{ color, fontFamily: "Poppins_600SemiBold", fontSize: 13 }}
             >
-              Setting
+              Juego
             </Text>
           ),
           tabBarIcon: ({ color }) => (
-            <MaterialIcons name="settings" color={color} size={30} />
+            <MaterialIcons name="sports-esports" color={color} size={30} />
           ),
         }}
       />
