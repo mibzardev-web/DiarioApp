@@ -115,6 +115,8 @@ export const LEVELS = [
       "UN ABRAZO",
       "A LA RONDA",
       "MI NOMBRE",
+      "TE AMO",
+      "CHICHAR",
     ],
   },
   {
@@ -133,6 +135,8 @@ export const LEVELS = [
       "SALTO Y CORRO",
       "A LA RONDA",
       "MI NOMBRE",
+      "TE AMO",
+      "CHICHAR",
     ],
   },
 ];
