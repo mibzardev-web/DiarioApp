@@ -97,7 +97,7 @@ export default function App() {
                   <View style={styles.modalViewUpdate}>
                     <View style={styles.bottomRowUpdate}>
                       <Image
-                        source={require("./assets/chuliphone512.png")} // Adjust path to your app icon
+                        source={require("./assets/icon.png")} // Adjust path to your app icon
                         style={styles.appIcon}
                       />
                       <View style={styles.appInfo}>
