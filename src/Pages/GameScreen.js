@@ -8,11 +8,11 @@ import {
   PanResponder,
   useWindowDimensions,
 } from "react-native";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useIsFocused } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-import { Palette } from "../constants/Colors";
+import { useTheme } from "../store/theme";
 import { POINTS_PER_WORD, WRONG_PENALTY, getLevelConfig } from "../data/words";
 import { generatePuzzle, getLine } from "../utils/wordSearch";
 import { getRecord, getLastGame, saveGame } from "../storage/gameRecord";
@@ -33,6 +33,8 @@ const formatTime = (s) =>
   `${Math.floor(Math.max(s, 0) / 60)}:${String(Math.max(s, 0) % 60).padStart(2, "0")}`;
 
 const GameScreen = () => {
+  const Palette = useTheme();
+  const styles = useMemo(() => makeStyles(Palette), [Palette]);
   const { width } = useWindowDimensions();
   const isFocused = useIsFocused();
 
@@ -382,7 +384,8 @@ const GameScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (Palette) =>
+  StyleSheet.create({
   center: {
     flex: 1,
     backgroundColor: Palette.background,
@@ -491,7 +494,7 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: Palette.border,
   },
-  cellSelected: { backgroundColor: "#B79CE8" },
+  cellSelected: { backgroundColor: Palette.selected },
   preview: {
     flexDirection: "row",
     alignItems: "center",
@@ -555,6 +558,6 @@ const styles = StyleSheet.create({
   },
   chipText: { fontSize: 13, color: Palette.dark },
   chipDone: { textDecorationLine: "line-through", opacity: 0.7 },
-});
+  });
 
 export default GameScreen;

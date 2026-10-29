@@ -11,17 +11,21 @@ import React, { useCallback, useMemo, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-import { Palette } from "../constants/Colors";
+import { useTheme } from "../store/theme";
+import { useProfileStore } from "../store/profile";
 import { getDiaries, deleteDiary } from "../storage/diaries";
 import { exportDiaryPdf } from "../utils/diaryPdf";
-import { formatDateTime, matchesDate } from "../utils/dates";
+import { formatDateTime, matchesDiary } from "../utils/dates";
 
 const HomeScreen = ({ navigation }) => {
+  const Palette = useTheme();
+  const styles = useMemo(() => makeStyles(Palette), [Palette]);
+  const profileName = useProfileStore((s) => s.name);
   const [diaries, setDiaries] = useState([]);
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(
-    () => diaries.filter((d) => matchesDate(d.fecha, query)),
+    () => diaries.filter((d) => matchesDiary(d, query)),
     [diaries, query],
   );
   const searching = query.trim().length > 0;
@@ -59,7 +63,9 @@ const HomeScreen = ({ navigation }) => {
     <View>
       <View style={styles.hero}>
         <View style={styles.heroText}>
-          <Text style={styles.heroTitle}>Mi diario de campo</Text>
+          <Text style={styles.heroTitle} numberOfLines={1}>
+            {profileName ? `Hola, ${profileName}` : "Mi diario de campo"}
+          </Text>
           <Text style={styles.heroSub}>
             Registra tu mañana de trabajo y descárgala en PDF.
           </Text>
@@ -82,6 +88,25 @@ const HomeScreen = ({ navigation }) => {
         <Text style={styles.buttonText}>Crear un nuevo diario</Text>
       </TouchableOpacity>
 
+      <View style={styles.quickRow}>
+        <TouchableOpacity
+          style={styles.quickBtn}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate("CalendarScreen")}
+        >
+          <MaterialCommunityIcons name="calendar-month" size={22} color={Palette.primary} />
+          <Text style={styles.quickText}>Calendario</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickBtn}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate("ExportRangeScreen")}
+        >
+          <MaterialCommunityIcons name="file-pdf-box" size={22} color={Palette.primary} />
+          <Text style={styles.quickText}>PDF por fechas</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.sectionHeader}>
         <MaterialCommunityIcons name="history" size={22} color={Palette.dark} />
         <Text style={styles.sectionTitle}>Historial de diarios</Text>
@@ -98,7 +123,7 @@ const HomeScreen = ({ navigation }) => {
           style={styles.searchInput}
           value={query}
           onChangeText={setQuery}
-          placeholder="Buscar por fecha (ej. 28, lunes, 28/09/2026)"
+          placeholder="Buscar por fecha, alumno o texto"
           placeholderTextColor={Palette.muted}
           returnKeyType="search"
           autoCorrect={false}
@@ -137,7 +162,7 @@ const HomeScreen = ({ navigation }) => {
             </Text>
             <Text style={styles.empty}>
               {searching
-                ? "No hay diarios con esa fecha. Prueba con otro día, mes o año."
+                ? "No encontramos diarios con eso. Prueba con otra fecha, nombre o palabra."
                 : 'Toca "Crear un nuevo diario" para escribir el primero.'}
             </Text>
           </View>
@@ -238,7 +263,8 @@ const HomeScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (Palette) =>
+  StyleSheet.create({
   container: { flex: 1, backgroundColor: Palette.background },
   list: { padding: 16, paddingBottom: 30 },
   hero: {
@@ -301,6 +327,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   badgeText: { color: Palette.primary, fontWeight: "700", fontSize: 13 },
+  quickRow: { flexDirection: "row", gap: 10, marginTop: 10 },
+  quickBtn: {
+    flex: 1,
+    backgroundColor: "#FFF",
+    borderRadius: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: Palette.border,
+  },
+  quickText: {
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 13,
+    color: Palette.dark,
+  },
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -372,6 +416,6 @@ const styles = StyleSheet.create({
   pdfBtn: { backgroundColor: Palette.tint },
   editBtn: { backgroundColor: Palette.tint },
   deleteBtn: { backgroundColor: Palette.dangerBg },
-});
+  });
 
 export default HomeScreen;

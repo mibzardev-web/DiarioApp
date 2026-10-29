@@ -11,10 +11,9 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/icon.png",
-        "backgroundImage": "./assets/icon.png",
-        "monochromeImage": "./assets/icon.png"
+        "backgroundColor": "#B79CE8",
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "monochromeImage": "./assets/adaptive-icon-mono.png"
       }
     },
     "web": {
@@ -24,7 +23,14 @@
       "expo-font",
       "expo-status-bar",
       "expo-sharing",
-      "expo-asset"
+      "expo-asset",
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Permite que Diario de Campo use Face ID para desbloquear tus diarios."
+        }
+      ]
     ],
     "extra": {
       "eas": {

@@ -11,6 +11,7 @@ const EditDiaryScreen = ({ route }) => {
       initialValues={diary}
       onSave={(form) => updateDiary(diary.id, form)}
       submitLabel="Guardar cambios"
+      draftKey={`@borrador_edicion_${diary.id}`}
     />
   );
 };

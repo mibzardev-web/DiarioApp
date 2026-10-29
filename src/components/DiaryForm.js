@@ -9,12 +9,15 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-import { Palette } from "../constants/Colors";
+import { useTheme } from "../store/theme";
 import useGlobalState from "../store/auth";
 import { exportDiaryPdf } from "../utils/diaryPdf";
+import { getStudents } from "../storage/students";
 
 const FIELDS = [
   { key: "fecha", label: "Fecha" },
@@ -51,12 +54,27 @@ export const EMPTY_DIARY = {
   registros: "",
 };
 
+// ¿Hay texto escrito distinto al inicial? (la fecha sola no cuenta como borrador)
+const hasChanges = (form, initial) =>
+  FIELDS.some((f) => f.key !== "fecha" && form[f.key] !== initial[f.key]);
+
+const insertName = (text, name) =>
+  `${text}${text && !/\s$/.test(text) ? " " : ""}${name} `;
+
 // Formulario compartido por crear y editar un diario.
-// `onSave(form)` guarda y devuelve el diario resultante (para poder generar el PDF).
-const DiaryForm = ({ initialValues, onSave, submitLabel = "Guardar" }) => {
+// - `onSave(form)` guarda y devuelve el diario resultante (para poder generar el PDF).
+// - `draftKey` guarda un borrador automático mientras se escribe.
+const DiaryForm = ({ initialValues, onSave, submitLabel = "Guardar", draftKey }) => {
+  const Palette = useTheme();
+  const styles = useMemo(() => makeStyles(Palette), [Palette]);
   const navigation = useNavigation();
-  const [form, setForm] = useState({ ...EMPTY_DIARY, ...initialValues });
+
+  const initial = useRef({ ...EMPTY_DIARY, ...initialValues }).current;
+  const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
+  const [students, setStudents] = useState([]);
+  const [focusedKey, setFocusedKey] = useState("alumnos");
+  const saved = useRef(false);
   const setShowTabBar = useGlobalState((s) => s.setShowTabBar);
 
   // Oculta los tabs mientras esta pantalla está abierta
@@ -67,6 +85,41 @@ const DiaryForm = ({ initialValues, onSave, submitLabel = "Guardar" }) => {
     }, [setShowTabBar]),
   );
 
+  useEffect(() => {
+    getStudents().then(setStudents);
+  }, []);
+
+  // Al abrir, ofrece recuperar un borrador que quedó sin guardar
+  useEffect(() => {
+    if (!draftKey) return;
+    AsyncStorage.getItem(draftKey).then((raw) => {
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (!hasChanges(draft, initial)) return;
+      Alert.alert(
+        "Borrador encontrado",
+        "Tenías un diario sin guardar. ¿Quieres recuperarlo?",
+        [
+          {
+            text: "Descartar",
+            style: "destructive",
+            onPress: () => AsyncStorage.removeItem(draftKey),
+          },
+          { text: "Recuperar", onPress: () => setForm({ ...initial, ...draft }) },
+        ],
+      );
+    });
+  }, [draftKey, initial]);
+
+  // Guarda el borrador poco después de dejar de escribir
+  useEffect(() => {
+    if (!draftKey || saved.current || !hasChanges(form, initial)) return;
+    const id = setTimeout(() => {
+      AsyncStorage.setItem(draftKey, JSON.stringify(form));
+    }, 400);
+    return () => clearTimeout(id);
+  }, [form, draftKey, initial]);
+
   const setField = (key, value) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -74,6 +127,8 @@ const DiaryForm = ({ initialValues, onSave, submitLabel = "Guardar" }) => {
     setSaving(true);
     try {
       const diary = await onSave(form);
+      saved.current = true;
+      if (draftKey) await AsyncStorage.removeItem(draftKey);
       if (withPdf) {
         try {
           await exportDiaryPdf(diary);
@@ -101,11 +156,40 @@ const DiaryForm = ({ initialValues, onSave, submitLabel = "Guardar" }) => {
     ]);
   };
 
+  const targetField = FIELDS.find((f) => f.key === focusedKey);
+
   return (
     <KeyboardAvoidingView
       style={styles.flex}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
+      {students.length > 0 && (
+        <View style={styles.studentsBar}>
+          <View style={styles.studentsHint}>
+            <MaterialCommunityIcons name="account-group" size={16} color={Palette.subText} />
+            <Text style={styles.studentsHintText} numberOfLines={1}>
+              Toca un nombre para insertarlo en: {targetField?.label}
+            </Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="always"
+            contentContainerStyle={styles.chips}
+          >
+            {students.map((s) => (
+              <TouchableOpacity
+                key={s.id}
+                style={styles.chip}
+                onPress={() => setField(focusedKey, insertName(form[focusedKey], s.nombre))}
+              >
+                <Text style={styles.chipText}>{s.nombre}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
@@ -118,9 +202,11 @@ const DiaryForm = ({ initialValues, onSave, submitLabel = "Guardar" }) => {
                 styles.input,
                 f.multiline && styles.multiline,
                 f.tall && styles.tall,
+                focusedKey === f.key && students.length > 0 && styles.inputFocused,
               ]}
               value={form[f.key]}
               onChangeText={(t) => setField(f.key, t)}
+              onFocus={() => setFocusedKey(f.key)}
               multiline={f.multiline}
               textAlignVertical={f.multiline ? "top" : "center"}
               placeholder={f.label}
@@ -141,40 +227,67 @@ const DiaryForm = ({ initialValues, onSave, submitLabel = "Guardar" }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: Palette.background },
-  container: { padding: 16, paddingBottom: 40 },
-  group: { marginBottom: 14 },
-  label: {
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 13,
-    color: Palette.dark,
-    marginBottom: 6,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: Palette.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: Palette.text,
-  },
-  multiline: { minHeight: 90 },
-  tall: { minHeight: 200 },
-  button: {
-    backgroundColor: Palette.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: {
-    color: "#FFF",
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 15,
-  },
-});
+const makeStyles = (Palette) =>
+  StyleSheet.create({
+    flex: { flex: 1, backgroundColor: Palette.background },
+    container: { padding: 16, paddingBottom: 40 },
+    studentsBar: {
+      backgroundColor: "#FFF",
+      paddingTop: 8,
+      paddingBottom: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: Palette.tint,
+      elevation: 2,
+    },
+    studentsHint: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 16,
+      marginBottom: 6,
+    },
+    studentsHintText: { flex: 1, fontSize: 12, color: Palette.subText },
+    chips: { paddingHorizontal: 12, gap: 8 },
+    chip: {
+      backgroundColor: Palette.tint,
+      borderRadius: 16,
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+    },
+    chipText: { fontSize: 13, color: Palette.dark, fontFamily: "Poppins_600SemiBold" },
+    group: { marginBottom: 14 },
+    label: {
+      fontFamily: "Poppins_600SemiBold",
+      fontSize: 13,
+      color: Palette.dark,
+      marginBottom: 6,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: Palette.border,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 14,
+      color: Palette.text,
+      backgroundColor: "#FFF",
+    },
+    inputFocused: { borderColor: Palette.primary },
+    multiline: { minHeight: 90 },
+    tall: { minHeight: 200 },
+    button: {
+      backgroundColor: Palette.primary,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: "center",
+      marginTop: 8,
+    },
+    buttonDisabled: { opacity: 0.6 },
+    buttonText: {
+      color: "#FFF",
+      fontFamily: "Poppins_600SemiBold",
+      fontSize: 15,
+    },
+  });
 
 export default DiaryForm;

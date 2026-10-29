@@ -63,35 +63,7 @@ const formatText = (text = "") =>
     .join("");
 
 // Colores y tamaños tomados del diario de campo original
-export const buildDiaryHtml = (diary, fontCss = "") => `
-<html>
-<head>
-  <meta charset="utf-8" />
-  <style>
-    ${fontCss}
-    @page { margin: 0; }
-    body {
-      margin: 0;
-      padding: 38px 36px;
-      font-family: 'DiarioFont', 'Century Gothic', 'Trebuchet MS', Arial, sans-serif;
-      font-size: 7px;
-      color: #000;
-    }
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    td, th { border: 1px solid #000; padding: 1px 3px; vertical-align: top; text-align: left; line-height: 1.25; }
-    th { font-weight: 700; text-align: center; }
-    p { margin: 0; text-align: justify; }
-    .bullet { margin: 0 0 0 10px; text-align: justify; }
-    .title { background: #A8D08D; font-size: 8.4px; }
-    .h-peach { background: #F7CAAC; }
-    .h-analisis { background: #F89EF6; }
-    .h-auto { background: #66CCFF; }
-    .h-reg { background: #FCAAA8; }
-    .center { text-align: center; }
-    .empty { height: 14px; }
-  </style>
-</head>
-<body>
+const buildDiaryTable = (diary) => `
   <table>
     <tr><th colspan="6" class="title">Diario de campo</th></tr>
     <tr>
@@ -119,8 +91,52 @@ export const buildDiaryHtml = (diary, fontCss = "") => `
     <tr><th colspan="6" class="h-reg">REGISTROS IMPORTANTES DEL DÍA</th></tr>
     <tr><td colspan="6" class="${diary.registros ? "" : "empty"}">${formatText(diary.registros)}</td></tr>
   </table>
+`;
+
+const buildDocument = (bodyHtml, fontCss = "") => `
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    ${fontCss}
+    @page { margin: 0; }
+    body {
+      margin: 0;
+      font-family: 'DiarioFont', 'Century Gothic', 'Trebuchet MS', Arial, sans-serif;
+      font-size: 7px;
+      color: #000;
+    }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    td, th { border: 1px solid #000; padding: 1px 3px; vertical-align: top; text-align: left; line-height: 1.25; }
+    th { font-weight: 700; text-align: center; }
+    p { margin: 0; text-align: justify; }
+    .bullet { margin: 0 0 0 10px; text-align: justify; }
+    .title { background: #A8D08D; font-size: 8.4px; }
+    .h-peach { background: #F7CAAC; }
+    .h-analisis { background: #F89EF6; }
+    .h-auto { background: #66CCFF; }
+    .h-reg { background: #FCAAA8; }
+    .center { text-align: center; }
+    .empty { height: 14px; }
+  
+    .page { padding: 38px 36px; page-break-after: always; }
+    .page:last-child { page-break-after: auto; }
+  </style>
+</head>
+<body>
+  ${bodyHtml}
 </body>
 </html>`;
+
+export const buildDiaryHtml = (diary, fontCss = "") =>
+  buildDocument(`<div class="page">${buildDiaryTable(diary)}</div>`, fontCss);
+
+// Varios diarios en un solo documento, uno por hoja
+export const buildDiariesHtml = (diaries, fontCss = "") =>
+  buildDocument(
+    diaries.map((d) => `<div class="page">${buildDiaryTable(d)}</div>`).join(""),
+    fontCss,
+  );
 
 // Carta horizontal (792x612), igual que el diario original
 export const exportDiaryPdf = async (diary) => {
@@ -135,6 +151,24 @@ export const exportDiaryPdf = async (diary) => {
       mimeType: "application/pdf",
       UTI: "com.adobe.pdf",
       dialogTitle: `Diario ${diary.fecha}`,
+    });
+  }
+  return uri;
+};
+
+// Un solo PDF con varios diarios (una hoja por día)
+export const exportDiariesPdf = async (diaries, title = "Diarios de campo") => {
+  const { uri } = await Print.printToFileAsync({
+    html: buildDiariesHtml(diaries, await getFontCss()),
+    width: 792,
+    height: 612,
+  });
+
+  if (await Sharing.isAvailableAsync()) {
+    await Sharing.shareAsync(uri, {
+      mimeType: "application/pdf",
+      UTI: "com.adobe.pdf",
+      dialogTitle: title,
     });
   }
   return uri;

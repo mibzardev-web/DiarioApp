@@ -15,6 +15,10 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Navigation from "./Navigation";
+import LockGate from "./src/components/LockGate";
+import WelcomeScreen from "./src/Pages/WelcomeScreen";
+import { useTheme, useThemeStore } from "./src/store/theme";
+import { useProfileStore } from "./src/store/profile";
 import { useFonts } from "expo-font";
 import {
   Poppins_400Regular,
@@ -36,10 +40,19 @@ export default function App() {
     Poppins_700Bold,
   });
 
+  const Palette = useTheme();
+  const themeLoaded = useThemeStore((st) => st.loaded);
+  const loadTheme = useThemeStore((st) => st.load);
+  const profileLoaded = useProfileStore((st) => st.loaded);
+  const profileName = useProfileStore((st) => st.name);
+  const loadProfile = useProfileStore((st) => st.load);
+
   const [isLoading, setIsLoading] = useState(true);
   const [modalVisibleUpdates, setModalVisibleUpdates] = useState(false); // State for modal visibility
 
   useEffect(() => {
+    loadTheme();
+    loadProfile();
     onFetchUpdateAsync();
   }, []);
 
@@ -69,10 +82,10 @@ export default function App() {
   };
 
   // Mostrar indicador de carga si las fuentes no están cargadas o si los datos están siendo procesados
-  if (!fontsLoaded) {
+  if (!fontsLoaded || !themeLoaded || !profileLoaded) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007BFF" />
+        <ActivityIndicator size="large" color={Palette.primary} />
       </View>
     );
   }
@@ -101,7 +114,7 @@ export default function App() {
                         style={styles.appIcon}
                       />
                       <View style={styles.appInfo}>
-                        <Text style={styles.appNameUpdate}>Diario App</Text>
+                        <Text style={styles.appNameUpdate}>Diario de Campo</Text>
                      
                         <View style={styles.versionContainer}>
                           <Text
@@ -112,14 +125,14 @@ export default function App() {
                           >
                             Existe una nueva version. ¿Deseas descargarla? En
                             caso de no hacerlo, no podras ingresar a la
-                            aplicación de Diario App.
+                            aplicación de Diario de Campo.
                           </Text>
                         </View>
                       </View>
                     </View>
 
                     <TouchableOpacity
-                      style={styles.buttonUpdatesCorrect}
+                      style={[styles.buttonUpdatesCorrect, { backgroundColor: Palette.primary }]}
                       onPress={handleUpdate}
                     >
                       <MaterialCommunityIcons
@@ -134,12 +147,14 @@ export default function App() {
               </Modal>
             </>
           ) : (
-            <Navigation />
+            <LockGate>
+              {profileName ? <Navigation /> : <WelcomeScreen />}
+            </LockGate>
           )}
           <StatusBar
             barStyle="light-content"
             translucent={false}
-            backgroundColor="#001D3D"
+            backgroundColor={Palette.dark}
             animated={true}
           />
         </SafeAreaView>

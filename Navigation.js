@@ -1,24 +1,28 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { NavigationContainer, useNavigation } from "@react-navigation/native";
+import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useMemo } from "react";
 
 //Iconos
-import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 
 //Importaciones de React Native
-import { Text, Image, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { Text } from "react-native";
 
 //Estados Globales
 import useGlobalState from "./src/store/auth";
-import { Palette } from "./src/constants/Colors";
-import useThemedColor from "./src/hooks/useThemeColor.js";
+import { useTheme } from "./src/store/theme";
 
-// Screens Home
+// Screens
 import HomeScreen from "./src/Pages/HomeScreen.js";
 import CreateDiaryScreen from "./src/Pages/CreateDiaryScreen.js";
 import EditDiaryScreen from "./src/Pages/EditDiaryScreen.js";
+import CalendarScreen from "./src/Pages/CalendarScreen.js";
+import ExportRangeScreen from "./src/Pages/ExportRangeScreen.js";
+import AlumnosScreen from "./src/Pages/AlumnosScreen.js";
+import StudentDetailScreen from "./src/Pages/StudentDetailScreen.js";
 import GameScreen from "./src/Pages/GameScreen.js";
+import SettingsScreen from "./src/Pages/SettingsScreen.js";
 
 //Stacks
 const Stack = createNativeStackNavigator();
@@ -26,31 +30,27 @@ const Stack = createNativeStackNavigator();
 //Button Tabs
 const Tab = createBottomTabNavigator();
 
-function MyStackPrincipal() {
-  const navigation = useNavigation();
+// Opciones comunes de los headers (usan la paleta activa)
+const useHeaderOptions = () => {
+  const Palette = useTheme();
+  return useMemo(
+    () => ({
+      headerShown: true,
+      headerShadowVisible: false,
+      headerTintColor: "#FFF", // Color del texto del header
+      headerStyle: { backgroundColor: Palette.dark }, // Color de fondo del header
+      contentStyle: { backgroundColor: Palette.background },
+    }),
+    [Palette],
+  );
+};
 
-  const { userData } = useGlobalState();
+function HomeStack() {
+  const headerOptions = useHeaderOptions();
 
   return (
-    <Stack.Navigator
-      initialRouteName="HomeScreen"
-      screenOptions={{
-        headerShown: true,
-        headerShadowVisible: false,
-        headerTintColor: "#FFF", // Color del texto del header
-        headerStyle: {
-          backgroundColor: Palette.dark, // Color de fondo del header
-        },
-      }}
-    >
-      <Stack.Screen
-        name="HomeScreen"
-        component={HomeScreen}
-        options={{
-          headerShown: true,
-          title: "Inicio", // Título vacío
-        }}
-      />
+    <Stack.Navigator initialRouteName="HomeScreen" screenOptions={headerOptions}>
+      <Stack.Screen name="HomeScreen" component={HomeScreen} options={{ title: "Inicio" }} />
       <Stack.Screen
         name="CreateDiaryScreen"
         component={CreateDiaryScreen}
@@ -61,21 +61,55 @@ function MyStackPrincipal() {
         component={EditDiaryScreen}
         options={{ title: "Editar diario" }}
       />
+      <Stack.Screen
+        name="CalendarScreen"
+        component={CalendarScreen}
+        options={{ title: "Calendario" }}
+      />
+      <Stack.Screen
+        name="ExportRangeScreen"
+        component={ExportRangeScreen}
+        options={{ title: "PDF por fechas" }}
+      />
     </Stack.Navigator>
   );
 }
 
+function AlumnosStack() {
+  const headerOptions = useHeaderOptions();
+
+  return (
+    <Stack.Navigator initialRouteName="AlumnosScreen" screenOptions={headerOptions}>
+      <Stack.Screen name="AlumnosScreen" component={AlumnosScreen} options={{ title: "Alumnos" }} />
+      <Stack.Screen
+        name="StudentDetailScreen"
+        component={StudentDetailScreen}
+        options={{ title: "Historial del alumno" }}
+      />
+    </Stack.Navigator>
+  );
+}
+
+const tabLabel = (text) => ({ color }) => (
+  <Text style={{ color, fontFamily: "Poppins_600SemiBold", fontSize: 12 }}>
+    {text}
+  </Text>
+);
+
+const tabIcon = (name) => ({ color }) => (
+  <MaterialIcons name={name} color={color} size={28} />
+);
+
 function TabsNavigator() {
   const { showTabBar } = useGlobalState();
+  const Palette = useTheme();
 
   return (
     <Tab.Navigator
       screenOptions={{
         tabBarActiveTintColor: Palette.primary,
         tabBarInactiveTintColor: Palette.muted,
-        headerStyle: {
-          backgroundColor: Palette.dark, // Color de fondo del header
-        },
+        headerStyle: { backgroundColor: Palette.dark }, // Color de fondo del header
         headerTintColor: "#FFF", // Color del texto del header
         tabBarStyle: {
           backgroundColor: "#FFF",
@@ -88,19 +122,20 @@ function TabsNavigator() {
     >
       <Tab.Screen
         name="Inicio"
-        component={MyStackPrincipal}
+        component={HomeStack}
         options={{
           headerShown: false,
-          tabBarLabel: ({ color }) => (
-            <Text
-              style={{ color, fontFamily: "Poppins_600SemiBold", fontSize: 13 }}
-            >
-              Home
-            </Text>
-          ),
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="home" color={color} size={30} />
-          ),
+          tabBarLabel: tabLabel("Home"),
+          tabBarIcon: tabIcon("home"),
+        }}
+      />
+      <Tab.Screen
+        name="Alumnos"
+        component={AlumnosStack}
+        options={{
+          headerShown: false,
+          tabBarLabel: tabLabel("Alumnos"),
+          tabBarIcon: tabIcon("groups"),
         }}
       />
       <Tab.Screen
@@ -108,35 +143,35 @@ function TabsNavigator() {
         component={GameScreen}
         options={{
           headerShown: true,
-          tabBarLabel: ({ color }) => (
-            <Text
-              style={{ color, fontFamily: "Poppins_600SemiBold", fontSize: 13 }}
-            >
-              Juego
-            </Text>
-          ),
-          tabBarIcon: ({ color }) => (
-            <MaterialIcons name="sports-esports" color={color} size={30} />
-          ),
+          tabBarLabel: tabLabel("Juego"),
+          tabBarIcon: tabIcon("sports-esports"),
+        }}
+      />
+      <Tab.Screen
+        name="Ajustes"
+        component={SettingsScreen}
+        options={{
+          headerShown: true,
+          tabBarLabel: tabLabel("Ajustes"),
+          tabBarIcon: tabIcon("settings"),
         }}
       />
     </Tab.Navigator>
   );
 }
 
-const styles = StyleSheet.create({
-  backButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 10,
-  },
-});
-
 export default function Navigation() {
+  const Palette = useTheme();
+  const navTheme = useMemo(
+    () => ({
+      ...DefaultTheme,
+      colors: { ...DefaultTheme.colors, background: Palette.background },
+    }),
+    [Palette],
+  );
+
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navTheme}>
       <TabsNavigator />
     </NavigationContainer>
   );
