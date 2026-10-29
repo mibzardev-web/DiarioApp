@@ -15,6 +15,7 @@ import useThemedColor from "./src/hooks/useThemeColor.js";
 
 // Screens Home
 import HomeScreen from "./src/Pages/HomeScreen.js";
+import SettingScreen from "./src/Pages/SettingScreen.js";
 
 //Stacks
 const Stack = createNativeStackNavigator();
@@ -85,6 +86,23 @@ function TabsNavigator() {
           ),
         }}
       />
+      <Tab.Screen
+        name="Setting"
+        component={SettingScreen}
+        options={{
+          headerShown: false,
+          tabBarLabel: ({ color }) => (
+            <Text
+              style={{ color, fontFamily: "Poppins_600SemiBold", fontSize: 13 }}
+            >
+              Setting
+            </Text>
+          ),
+          tabBarIcon: ({ color }) => (
+            <MaterialIcons name="settings" color={color} size={30} />
+          ),
+        }}
+      />
     </Tab.Navigator>
   );
 }
@@ -102,7 +120,7 @@ const styles = StyleSheet.create({
 export default function Navigation() {
   return (
     <NavigationContainer>
-      <MyStackPrincipal />
+      <TabsNavigator />
     </NavigationContainer>
   );
 }
