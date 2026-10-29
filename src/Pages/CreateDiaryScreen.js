@@ -9,8 +9,11 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 
+import { Palette } from "../constants/Colors";
+import useGlobalState from "../store/auth";
 import { saveDiary } from "../storage/diaries";
 import { exportDiaryPdf } from "../utils/diaryPdf";
 
@@ -79,6 +82,15 @@ const CreateDiaryScreen = ({ navigation }) => {
     registros: "",
   });
   const [saving, setSaving] = useState(false);
+  const setShowTabBar = useGlobalState((s) => s.setShowTabBar);
+
+  // Oculta los tabs mientras esta pantalla está abierta
+  useFocusEffect(
+    useCallback(() => {
+      setShowTabBar(false);
+      return () => setShowTabBar(true);
+    }, [setShowTabBar]),
+  );
 
   const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -136,7 +148,7 @@ const CreateDiaryScreen = ({ navigation }) => {
               multiline={f.multiline}
               textAlignVertical={f.multiline ? "top" : "center"}
               placeholder={f.label}
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={Palette.muted}
             />
           </View>
         ))}
@@ -154,28 +166,28 @@ const CreateDiaryScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: "#FFF" },
+  flex: { flex: 1, backgroundColor: Palette.background },
   container: { padding: 16, paddingBottom: 40 },
   group: { marginBottom: 14 },
   label: {
     fontFamily: "Poppins_600SemiBold",
     fontSize: 13,
-    color: "#001D3D",
+    color: Palette.dark,
     marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#CBD5E1",
+    borderColor: Palette.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: "#45556C",
+    color: Palette.text,
   },
   multiline: { minHeight: 90 },
   tall: { minHeight: 200 },
   button: {
-    backgroundColor: "#2253DF",
+    backgroundColor: Palette.primary,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",

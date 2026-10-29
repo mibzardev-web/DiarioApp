@@ -11,6 +11,7 @@ import { Text, Image, TouchableOpacity, StyleSheet, Alert } from "react-native";
 
 //Estados Globales
 import useGlobalState from "./src/store/auth";
+import { Palette } from "./src/constants/Colors";
 import useThemedColor from "./src/hooks/useThemeColor.js";
 
 // Screens Home
@@ -37,7 +38,7 @@ function MyStackPrincipal() {
         headerShadowVisible: false,
         headerTintColor: "#FFF", // Color del texto del header
         headerStyle: {
-          backgroundColor: "#001D3D", // Color de fondo del header
+          backgroundColor: Palette.dark, // Color de fondo del header
         },
       }}
     >
@@ -64,8 +65,8 @@ function TabsNavigator() {
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: "#2253DF",
-        tabBarInactiveTintColor: "#CBD5E1",
+        tabBarActiveTintColor: Palette.primary,
+        tabBarInactiveTintColor: Palette.muted,
         tabBarStyle: {
           backgroundColor: "#FFF",
           display: showTabBar ? "flex" : "none",
