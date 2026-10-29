@@ -15,6 +15,7 @@ import useThemedColor from "./src/hooks/useThemeColor.js";
 
 // Screens Home
 import HomeScreen from "./src/Pages/HomeScreen.js";
+import CreateDiaryScreen from "./src/Pages/CreateDiaryScreen.js";
 import SettingScreen from "./src/Pages/SettingScreen.js";
 
 //Stacks
@@ -47,6 +48,11 @@ function MyStackPrincipal() {
           headerShown: true,
           title: "Inicio", // Título vacío
         }}
+      />
+      <Stack.Screen
+        name="CreateDiaryScreen"
+        component={CreateDiaryScreen}
+        options={{ title: "Nuevo diario" }}
       />
     </Stack.Navigator>
   );
