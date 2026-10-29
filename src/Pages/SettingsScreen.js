@@ -18,28 +18,36 @@ import { PALETTES } from "../constants/Colors";
 import { useTheme, useThemeStore } from "../store/theme";
 import { useProfileStore } from "../store/profile";
 import {
-  hasPin,
+  getMethod,
+  setMethod,
   setPin as savePin,
   checkPin,
   removePin,
   isBiometricEnabled,
   setBiometricEnabled,
-  biometricAvailable,
-  authenticateBiometric,
+  getCapabilities,
+  authenticateWith,
 } from "../storage/security";
 import { exportBackup, pickBackup, restoreBackup } from "../storage/backup";
 import appJson from "../../app.json";
 
-// Pasos de cada flujo del PIN
+// Pasos de cada flujo del PIN. "verify" solo comprueba el PIN actual y luego ejecuta `then`.
 const FLOWS = {
   create: ["new", "confirm"],
   change: ["current", "new", "confirm"],
-  disable: ["current"],
+  verify: ["current"],
 };
 const STEP_TITLES = {
   current: "Escribe tu PIN actual",
   new: "Elige un PIN nuevo",
   confirm: "Confirma tu PIN",
+};
+
+const NO_CAPS = {
+  biometric: false,
+  biometricLabel: "Huella o rostro",
+  biometricHardware: false,
+  device: false,
 };
 
 const SettingsScreen = () => {
@@ -52,20 +60,20 @@ const SettingsScreen = () => {
   const setProfileName = useProfileStore((s) => s.setName);
 
   const [nameDraft, setNameDraft] = useState(profileName);
-  const [pinEnabled, setPinEnabled] = useState(false);
-  const [bioEnabled, setBioEnabled] = useState(false);
-  const [bioAvailable, setBioAvailable] = useState(false);
+  const [method, setMethodState] = useState("none"); // none | pin | biometric | device
+  const [bioShortcut, setBioShortcut] = useState(false); // huella como atajo del PIN
+  const [caps, setCaps] = useState(NO_CAPS);
   const [busy, setBusy] = useState(false);
 
-  // Flujo del PIN: { flow, stepIndex, firstPin }
+  // Flujo del PIN: { flow, stepIndex, firstPin, then }
   const [pinFlow, setPinFlow] = useState(null);
   const [pinValue, setPinValue] = useState("");
   const [pinError, setPinError] = useState("");
 
   const loadSecurity = useCallback(async () => {
-    setPinEnabled(await hasPin());
-    setBioEnabled(await isBiometricEnabled());
-    setBioAvailable(await biometricAvailable().catch(() => false));
+    setMethodState(await getMethod());
+    setBioShortcut(await isBiometricEnabled());
+    setCaps(await getCapabilities());
   }, []);
 
   useFocusEffect(
@@ -80,14 +88,21 @@ const SettingsScreen = () => {
     setPinError("");
   };
 
-  const startFlow = (flow) => {
-    setPinFlow({ flow, stepIndex: 0, firstPin: "" });
+  const startFlow = (flow, then) => {
+    setPinFlow({ flow, stepIndex: 0, firstPin: "", then });
     setPinValue("");
     setPinError("");
   };
 
+  // Deja guardado el método elegido (y quita el PIN de la app si ya no se usa)
+  const applyMethod = async (next) => {
+    if (next !== "pin") await removePin();
+    await setMethod(next);
+    await loadSecurity();
+  };
+
   const onPinComplete = async (value) => {
-    const { flow, stepIndex, firstPin } = pinFlow;
+    const { flow, stepIndex, firstPin, then } = pinFlow;
     const step = FLOWS[flow][stepIndex];
     const isLast = stepIndex === FLOWS[flow].length - 1;
 
@@ -98,10 +113,9 @@ const SettingsScreen = () => {
 
     if (step === "current") {
       if (!(await checkPin(value))) return fail("PIN incorrecto");
-      if (flow === "disable") {
-        await removePin();
+      if (flow === "verify") {
         closePinFlow();
-        loadSecurity();
+        await then?.();
         return;
       }
     } else if (step === "confirm") {
@@ -110,6 +124,7 @@ const SettingsScreen = () => {
         return fail("No coinciden, vuelve a elegir tu PIN");
       }
       await savePin(value);
+      await setMethod("pin");
       closePinFlow();
       await loadSecurity();
       Alert.alert(
@@ -129,18 +144,29 @@ const SettingsScreen = () => {
     setPinError("");
   };
 
-  const togglePin = (on) => (on ? startFlow("create") : startFlow("disable"));
+  // Elegir cómo se bloquea la app. Para salir de un método con protección primero se
+  // confirma la identidad, y para activar huella/código del teléfono se comprueba que funcione.
+  const selectMethod = async (next) => {
+    if (next === method) return;
 
-  const toggleBiometric = async (on) => {
-    if (on) {
-      try {
-        if (!(await authenticateBiometric("Confirma para activar la huella"))) return;
-      } catch (e) {
-        return;
-      }
+    const proceed = async () => {
+      if (next === "pin") return startFlow("create");
+      if (next === "none") return applyMethod("none");
+      const ok = await authenticateWith(next, "Confirma para activar este bloqueo");
+      if (ok) await applyMethod(next);
+    };
+
+    if (method === "none") return proceed();
+    if (method === "pin") return startFlow("verify", proceed);
+    if (await authenticateWith(method, "Confirma tu identidad")) await proceed();
+  };
+
+  const toggleBioShortcut = async (on) => {
+    if (on && !(await authenticateWith("biometric", "Confirma para activar este atajo"))) {
+      return;
     }
     await setBiometricEnabled(on);
-    setBioEnabled(on);
+    setBioShortcut(on);
   };
 
   const saveName = async () => {
@@ -230,23 +256,77 @@ const SettingsScreen = () => {
       </View>
 
       {/* Seguridad */}
-      <Text style={styles.sectionTitle}>Seguridad</Text>
+      <Text style={styles.sectionTitle}>Bloqueo de la app</Text>
       <View style={styles.card}>
-        <View style={styles.row}>
-          <MaterialCommunityIcons name="lock-outline" size={24} color={Palette.primary} />
-          <View style={styles.rowText}>
-            <Text style={styles.rowTitle}>Bloqueo con PIN</Text>
-            <Text style={styles.rowSub}>Pide un PIN de 4 dígitos al abrir la app</Text>
-          </View>
-          <Switch
-            value={pinEnabled}
-            onValueChange={togglePin}
-            trackColor={{ true: Palette.selected, false: Palette.border }}
-            thumbColor={pinEnabled ? Palette.primary : "#FFF"}
-          />
-        </View>
+        <Text style={styles.rowSub}>
+          Elige cómo proteger tus diarios. Las opciones en gris no están
+          disponibles en este teléfono.
+        </Text>
 
-        {pinEnabled && (
+        {[
+          {
+            key: "none",
+            icon: "lock-open-variant-outline",
+            title: "Sin bloqueo",
+            sub: "Cualquiera con tu teléfono desbloqueado puede abrir la app",
+            enabled: true,
+          },
+          {
+            key: "pin",
+            icon: "dialpad",
+            title: "PIN de la app",
+            sub: "Un PIN de 4 dígitos solo para Diario de Campo",
+            enabled: true,
+          },
+          {
+            key: "biometric",
+            icon: "fingerprint",
+            title: caps.biometricLabel,
+            sub: caps.biometric
+              ? "Desbloquea con la huella o el rostro de tu teléfono"
+              : caps.biometricHardware
+                ? "Registra una huella o rostro en los ajustes del teléfono para usarlo"
+                : "Este teléfono no tiene lector de huella ni de rostro",
+            enabled: caps.biometric,
+          },
+          {
+            key: "device",
+            icon: "cellphone-lock",
+            title: "PIN o patrón del teléfono",
+            sub: caps.device
+              ? "Desbloquea con el mismo código con que abres tu teléfono"
+              : "Tu teléfono no tiene bloqueo de pantalla. Actívalo en sus ajustes",
+            enabled: caps.device,
+          },
+        ].map((o) => {
+          const active = method === o.key;
+          return (
+            <TouchableOpacity
+              key={o.key}
+              style={[styles.option, active && styles.optionActive, !o.enabled && styles.optionOff]}
+              disabled={!o.enabled}
+              activeOpacity={0.8}
+              onPress={() => selectMethod(o.key)}
+            >
+              <MaterialCommunityIcons
+                name={o.icon}
+                size={26}
+                color={active ? Palette.primary : Palette.muted}
+              />
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>{o.title}</Text>
+                <Text style={styles.rowSub}>{o.sub}</Text>
+              </View>
+              <MaterialCommunityIcons
+                name={active ? "radiobox-marked" : "radiobox-blank"}
+                size={24}
+                color={active ? Palette.primary : Palette.border}
+              />
+            </TouchableOpacity>
+          );
+        })}
+
+        {method === "pin" && (
           <>
             <TouchableOpacity style={[styles.row, styles.rowTop]} onPress={() => startFlow("change")}>
               <MaterialCommunityIcons name="form-textbox-password" size={24} color={Palette.primary} />
@@ -256,18 +336,18 @@ const SettingsScreen = () => {
               <MaterialCommunityIcons name="chevron-right" size={22} color={Palette.muted} />
             </TouchableOpacity>
 
-            {bioAvailable && (
+            {caps.biometric && (
               <View style={[styles.row, styles.rowTop]}>
                 <MaterialCommunityIcons name="fingerprint" size={24} color={Palette.primary} />
                 <View style={styles.rowText}>
-                  <Text style={styles.rowTitle}>Huella o rostro</Text>
-                  <Text style={styles.rowSub}>Desbloquear sin escribir el PIN</Text>
+                  <Text style={styles.rowTitle}>También con {caps.biometricLabel.toLowerCase()}</Text>
+                  <Text style={styles.rowSub}>Entrar sin escribir el PIN</Text>
                 </View>
                 <Switch
-                  value={bioEnabled}
-                  onValueChange={toggleBiometric}
+                  value={bioShortcut}
+                  onValueChange={toggleBioShortcut}
                   trackColor={{ true: Palette.selected, false: Palette.border }}
-                  thumbColor={bioEnabled ? Palette.primary : "#FFF"}
+                  thumbColor={bioShortcut ? Palette.primary : "#FFF"}
                 />
               </View>
             )}
@@ -321,8 +401,8 @@ const SettingsScreen = () => {
           </TouchableOpacity>
           <MaterialCommunityIcons name="lock" size={44} color={Palette.primary} />
           <Text style={styles.pinTitle}>{step ? STEP_TITLES[step] : ""}</Text>
-          {pinFlow?.flow === "disable" && (
-            <Text style={styles.pinHint}>Para quitar el bloqueo, confirma tu PIN.</Text>
+          {pinFlow?.flow === "verify" && (
+            <Text style={styles.pinHint}>Confirma tu PIN para continuar.</Text>
           )}
           <PinPad
             pin={pinValue}
@@ -390,6 +470,17 @@ const makeStyles = (Palette) =>
       color: Palette.dark,
     },
     rowSub: { fontSize: 12, color: Palette.subText },
+    option: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderWidth: 1.5,
+      borderColor: Palette.border,
+      borderRadius: 14,
+      padding: 12,
+    },
+    optionActive: { borderColor: Palette.primary, backgroundColor: Palette.background },
+    optionOff: { opacity: 0.5 },
     swatches: {
       flexDirection: "row",
       flexWrap: "wrap",
