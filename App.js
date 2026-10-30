@@ -30,6 +30,9 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Updates from "expo-updates";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
+// Marca que la app se reinició por una actualización (para mostrar el aviso al abrir)
+const UPDATED_KEY = "@app_actualizada";
+
 export default function App() {
 
   // Fuentes personalizadas cargadas
@@ -49,12 +52,27 @@ export default function App() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [modalVisibleUpdates, setModalVisibleUpdates] = useState(false); // State for modal visibility
+  const [updateStatus, setUpdateStatus] = useState("idle"); // idle | downloading | done | error
+  const [justUpdated, setJustUpdated] = useState(false); // aviso al abrir tras una actualización
 
   useEffect(() => {
     loadTheme();
     loadProfile();
     onFetchUpdateAsync();
+    showUpdatedNotice();
   }, []);
+
+  // Si la app se reinició por una actualización, avisa que ya quedó lista
+  async function showUpdatedNotice() {
+    try {
+      if ((await AsyncStorage.getItem(UPDATED_KEY)) !== "1") return;
+      await AsyncStorage.removeItem(UPDATED_KEY);
+      setJustUpdated(true);
+      setTimeout(() => setJustUpdated(false), 4000);
+    } catch (error) {
+      console.error(`Error reading update notice: ${error}`);
+    }
+  }
 
   async function onFetchUpdateAsync() {
     try {
@@ -69,11 +87,17 @@ export default function App() {
 
 
   const handleUpdate = async () => {
+    setUpdateStatus("downloading");
     try {
       await Updates.fetchUpdateAsync(); // Descarga la actualización
+      await AsyncStorage.setItem(UPDATED_KEY, "1"); // Para avisar al volver a abrir
+      setUpdateStatus("done");
+      await new Promise((resolve) => setTimeout(resolve, 1500)); // Deja ver el mensaje
       await Updates.reloadAsync(); // Reinicia la app con la nueva versión
     } catch (error) {
       console.error("Error al actualizar la app:", error);
+      await AsyncStorage.removeItem(UPDATED_KEY);
+      setUpdateStatus("error");
     }
   };
 
@@ -116,32 +140,82 @@ export default function App() {
                       <View style={styles.appInfo}>
                         <Text style={styles.appNameUpdate}>Diario de Campo</Text>
                      
-                        <View style={styles.versionContainer}>
-                          <Text
-                            style={[
-                              styles.versionText,
-                              { textAlign: "center" },
-                            ]}
-                          >
-                            Existe una nueva version. ¿Deseas descargarla? En
-                            caso de no hacerlo, no podras ingresar a la
-                            aplicación de Diario de Campo.
-                          </Text>
-                        </View>
+                        {updateStatus === "idle" && (
+                          <View style={styles.versionContainer}>
+                            <Text
+                              style={[
+                                styles.versionText,
+                                { textAlign: "center" },
+                              ]}
+                            >
+                              Existe una nueva version. ¿Deseas descargarla? En
+                              caso de no hacerlo, no podras ingresar a la
+                              aplicación de Diario de Campo.
+                            </Text>
+                          </View>
+                        )}
                       </View>
                     </View>
 
-                    <TouchableOpacity
-                      style={[styles.buttonUpdatesCorrect, { backgroundColor: Palette.primary }]}
-                      onPress={handleUpdate}
-                    >
-                      <MaterialCommunityIcons
-                        name="refresh"
-                        size={24}
-                        color="#ccc"
-                      />
-                      <Text style={styles.buttonText}>Actualizar</Text>
-                    </TouchableOpacity>
+                    {updateStatus === "downloading" && (
+                      <View style={styles.updateStatus}>
+                        <ActivityIndicator size="large" color={Palette.primary} />
+                        <Text style={styles.updateStatusTitle}>
+                          Descargando actualización...
+                        </Text>
+                        <Text style={styles.versionText}>
+                          No cierres la app, esto toma unos segundos.
+                        </Text>
+                      </View>
+                    )}
+
+                    {updateStatus === "done" && (
+                      <View style={styles.updateStatus}>
+                        <MaterialCommunityIcons
+                          name="check-circle"
+                          size={48}
+                          color="#66BB6A"
+                        />
+                        <Text style={styles.updateStatusTitle}>
+                          ¡Listo, ya se actualizó!
+                        </Text>
+                        <Text style={styles.versionText}>
+                          Reiniciando la app...
+                        </Text>
+                      </View>
+                    )}
+
+                    {updateStatus === "error" && (
+                      <View style={styles.updateStatus}>
+                        <MaterialCommunityIcons
+                          name="alert-circle-outline"
+                          size={48}
+                          color="#EF5350"
+                        />
+                        <Text style={styles.updateStatusTitle}>
+                          No se pudo actualizar
+                        </Text>
+                        <Text style={styles.versionText}>
+                          Revisa tu internet e inténtalo de nuevo.
+                        </Text>
+                      </View>
+                    )}
+
+                    {(updateStatus === "idle" || updateStatus === "error") && (
+                      <TouchableOpacity
+                        style={[styles.buttonUpdatesCorrect, { backgroundColor: Palette.primary }]}
+                        onPress={handleUpdate}
+                      >
+                        <MaterialCommunityIcons
+                          name="refresh"
+                          size={24}
+                          color="#ccc"
+                        />
+                        <Text style={styles.buttonText}>
+                          {updateStatus === "error" ? "Reintentar" : "Actualizar"}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               </Modal>
@@ -150,6 +224,17 @@ export default function App() {
             <LockGate>
               {profileName ? <Navigation /> : <WelcomeScreen />}
             </LockGate>
+          )}
+          {justUpdated && (
+            <View
+              style={[styles.updatedNotice, { backgroundColor: Palette.dark }]}
+              pointerEvents="none"
+            >
+              <MaterialCommunityIcons name="check-circle" size={22} color="#A5D6A7" />
+              <Text style={styles.updatedNoticeText}>
+                ¡Listo! Diario de Campo ya se actualizó
+              </Text>
+            </View>
           )}
           <StatusBar
             barStyle="light-content"
@@ -274,6 +359,37 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start", // Align items to the start
     marginTop: 20, // Space above the bottom row
     width: "100%", // Full width of the modal
+  },
+  updateStatus: {
+    alignItems: "center",
+    gap: 8,
+    marginTop: 24,
+  },
+  updateStatusTitle: {
+    fontSize: 16,
+    fontFamily: "Poppins_600SemiBold",
+    color: "#FFF",
+    textAlign: "center",
+  },
+  updatedNotice: {
+    position: "absolute",
+    top: 12,
+    left: 16,
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    elevation: 8,
+    zIndex: 100,
+  },
+  updatedNoticeText: {
+    color: "#FFF",
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 13,
   },
   modalContainerUpdate: {
     flex: 1,
