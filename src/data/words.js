@@ -1,8 +1,8 @@
-// Palabras y frases por nivel de la sopa de letras.
-// - Escribe todo en MAYÚSCULAS y sin acentos ni Ñ.
-// - Las frases pueden llevar espacios: en la sopa se colocan sin espacios
-//   (por ejemplo "EL SOL" se busca como ELSOL) y en la lista se muestran con ellos.
-// - Ninguna palabra puede tener más letras (sin espacios) que el `size` de su nivel.
+// Palabras por nivel de la sopa de letras.
+// - Escribe todo en MAYÚSCULAS, sin acentos, sin Ñ y sin espacios (una sola palabra).
+// - Ninguna palabra puede tener más letras que el `size` de su nivel.
+// - Cada partida elige `count` palabras al azar de la lista del nivel, así que
+//   mientras más palabras haya, más variadas salen las sopas.
 // - Pasado el último nivel, el juego sigue con la configuración del último.
 
 const DIRECCIONES_BASICAS = [
@@ -21,122 +21,196 @@ const TODAS = [
 
 export const LEVELS = [
   {
-    // Nivel 1: palabras cortas, solo → y ↓
+    // Nivel 1: palabras cortas (hasta 6 letras), solo → y ↓
     size: 6,
     count: 4,
     directions: DIRECCIONES_BASICAS,
     words: [
-      "SOL",
-      "LUNA",
-      "GATO",
-      "PERRO",
-      "CASA",
-      "MESA",
-      "PATO",
-      "FLOR",
-      "MAR",
-      "PAN",
-      "OSO",
-      "LAPIZ",
+      // Naturaleza y animales
+      "SOL", "LUNA", "MAR", "NUBE", "LLUVIA", "AGUA", "FUEGO", "VIENTO", "CIELO", "ASTRO",
+      "ARBOL", "HOJA", "RAMA", "PASTO", "FLOR", "ROSA", "NIDO",
+      "GATO", "PERRO", "PATO", "OSO", "SAPO", "RANA", "VACA", "LOBO", "PEZ", "AVE",
+      "MONO", "TIGRE", "LEON", "CERDO", "GALLO", "POLLO", "PAVO", "CABRA", "BURRO",
+      "MULA", "OVEJA", "ABEJA", "LORO",
+      // Casa y escuela
+      "CASA", "MESA", "SILLA", "CAMA", "LUZ", "LAPIZ", "LIBRO", "GOMA", "PAPEL", "TIZA",
+      "REGLA", "DADO", "BOLA", "PELOTA", "TREN", "CARRO", "BUS",
+      // Colores y números
+      "AZUL", "VERDE", "ROJO", "UNO", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE",
+      "OCHO", "NUEVE", "DIEZ",
+      // Cuerpo, comida y familia
+      "DEDO", "MANO", "PIE", "OJO", "NARIZ", "BOCA", "PELO", "CARA", "BRAZO", "OREJA",
+      "PAN", "LECHE", "QUESO", "HUEVO", "PERA", "UVA", "LIMON", "MANGO", "COCO", "SOPA",
+      "ARROZ", "PAPA", "TACO", "DULCE", "TORTA", "JUGO", "MIEL", "SAL",
+      "MAMA", "TIA", "TIO", "BEBE",
+      // Tiempo y juego
+      "DIA", "NOCHE", "TARDE", "HORA", "AYER", "HOY", "RISA", "JUEGO", "SALTO", "CANTO",
+      "BAILE",
     ],
   },
   {
-    // Nivel 2: palabras de la escuela, se agrega la diagonal
+    // Nivel 2: hasta 7 letras, se agrega la diagonal
     size: 7,
     count: 5,
     directions: CON_DIAGONAL,
     words: [
-      "ESCUELA",
-      "MAESTRO",
-      "LIBRO",
-      "COLORES",
-      "AMIGOS",
-      "RECREO",
-      "LETRAS",
-      "NUMEROS",
-      "JUGUETE",
-      "CRAYOLA",
-      "TIJERAS",
+      // Escuela
+      "ESCUELA", "MAESTRO", "MAESTRA", "ALUMNO", "ALUMNA", "SALON", "CLASE", "TAREA",
+      "EXAMEN", "TINTA", "PLUMA", "MOCHILA", "LETRAS", "NUMEROS", "RECREO", "AMIGOS",
+      "JUGUETE", "CRAYOLA", "TIJERAS", "COLORES", "CUENTOS", "CANCION", "RONDA", "SILABAS",
+      "ABRAZOS", "CUENTO", "BLOQUES", "PATIO", "JARDIN",
+      // Acciones
+      "BAILAR", "CORRER", "SALTAR", "JUGAR", "DIBUJO", "PINTAR", "CORTAR", "PEGAR", "ARMAR",
+      // Familia
+      "FAMILIA", "ABUELO", "ABUELA", "HERMANO", "HERMANA", "PRIMO", "PRIMA",
+      // Colores y figuras
+      "NARANJA", "MORADO", "ROSADO", "BLANCO", "NEGRO", "CAFE", "DORADO", "CIRCULO",
+      "LINEA", "CURVA", "FIGURAS", "PUNTO", "CUADRO",
+      // Animales
+      "GALLINA", "CONEJO", "DELFIN", "BALLENA", "ZORRO", "VENADO", "PALOMA", "AGUILA",
+      "PULPO", "FOCA", "CEBRA", "JIRAFA", "TORTUGA", "CABALLO", "HORMIGA", "CARACOL",
+      "LAGARTO",
+      // Comida
+      "SANDIA", "FRESA", "PAPAYA", "MELON", "CEREZA", "TOMATE", "PEPINO", "ELOTE", "HELADO",
+      "PALETA", "YOGURT", "CEREAL", "GALLETA", "MANZANA", "PLATANO", "DURAZNO", "LECHUGA",
+      "CEBOLLA",
+      // Lugares, transportes y oficios
+      "VOLCAN", "RIO", "LAGO", "SELVA", "BOSQUE", "PLAYA", "ISLA", "TRUENO", "VERANO",
+      "AVION", "BARCO", "CAMION", "COHETE", "TRACTOR", "BOMBERO", "DOCTORA", "POLICIA",
+      "CARTERO", "PINTOR", "ARTISTA",
     ],
   },
   {
-    // Nivel 3: palabras más largas, ya pueden estar al revés
+    // Nivel 3: hasta 8 letras, ya pueden estar al revés
     size: 8,
     count: 6,
     directions: TODAS,
     words: [
-      "PIZARRON",
-      "CUADERNO",
-      "MOCHILA",
-      "DIBUJAR",
-      "PINTURA",
-      "APRENDER",
-      "ESCRIBIR",
-      "SALTAR",
-      "CANTAR",
-      "MUSICA",
-      "LECTURA",
-      "PALABRA",
+      // Escuela
+      "PIZARRON", "CUADERNO", "DIBUJAR", "PINTURA", "APRENDER", "ESCRIBIR", "ESTUDIAR",
+      "MUSICA", "LECTURA", "PALABRA", "BORRADOR", "ACUARELA", "PINCELES", "CRAYONES",
+      "LENGUAJE", "CUADRADO", "AMARILLO",
+      // Comida
+      "AGUACATE", "GELATINA", "FRIJOLES", "TORTILLA", "CALABAZA", // Animales
+      "PINGUINO", "MARIPOSA", "LIBELULA", "TIBURON", "ESTRELLA", "CANGREJO", "CALAMAR",
+      "LOMBRIZ", "CAMELLO", "PANTERA", "COYOTE", "ARDILLA", "GAVIOTA", "PELICANO",
+      "FLAMENCO", "HAMSTER",
+      // Naturaleza y clima
+      "INVIERNO", "DESIERTO", "ARCOIRIS", "TORMENTA", "CASCADA", "NEBLINA", // Transportes y oficios
+      "TRICICLO", "AUTOBUS", "PATRULLA", "CANTANTE", "MECANICO", "GRANJERO", "PANADERO",
+      "COCINERO", "DENTISTA", "PESCADOR", "PILOTO", "MARINERO", "SOLDADO",
+      "PLOMERO", "MUSICO",
+      // Casa
+      "TELEFONO", "PARAGUAS", "LAVADORA", "ESCALERA", "VENTANA", "COCINA", "SALA", "COMEDOR", "JARDINES",
+      // Valores
+      "ALEGRIA", "AMISTAD", "RESPETO",
+      // Fiesta y cuentos
+      "FIESTA", "GLOBOS", "REGALO", "PASTEL", "SORPRESA", "CONFETI", "MAGIA",
+      "PAYASO", "PRINCESA", "DRAGON", "CASTILLO", "HADA", "PIRATA", "TESORO",
+      // Especiales
+      "TEAMO", "CHICHAR",
     ],
   },
   {
-    // Nivel 4: palabras largas
+    // Nivel 4: hasta 9 letras
     size: 9,
     count: 6,
     directions: TODAS,
     words: [
-      "ALFABETO",
-      "SILABAS",
-      "PEGAMENTO",
-      "CUENTO",
-      "ABRAZOS",
-      "MARIPOSA",
-      "ELEFANTE",
-      "JIRAFA",
-      "COCODRILO",
-      "TORTUGA",
-      "CABALLO",
-      "HORMIGA",
+      // Escuela y aprendizaje
+      "ALFABETO", "PEGAMENTO", "TRIANGULO", "PEDAGOGIA", "EDUCACION", "EXPRESION",
+      "ACTIVIDAD", "FELICIDAD", "CUADERNOS", // Animales
+      "COCODRILO", "ELEFANTE", "SERPIENTE", "CABALLERO", "MOSQUITO", "CHIMPANCE", "LANGOSTA",
+      "CARACOLES", "TAMANDUA", "GUACAMAYA", "CODORNIZ", "CAMALEON", "CANGURO", "KOALA",
+      // Comida
+      "CHOCOLATE", "MANDARINA", "ZANAHORIA", "SALCHICHA", "ESPINACA",
+      "BROCOLI", "COLIFLOR", "MERMELADA", "PANQUEQUE", "TAMALES", "ENCHILADA",
+      // Transportes y estaciones
+      "BICICLETA", "SUBMARINO", "PRIMAVERA", "RELAMPAGO", "TERREMOTO", "HURACAN",
+      "SEMAFORO", "BANQUETA", "CARRETERA", "ESTACION",
+      // Oficios
+      "BAILARINA", "PROFESORA", "DIRECTORA", "ENFERMERA", "JARDINERO", "FOTOGRAFO",
+      "ABOGADO", "VENDEDOR",
+      // Ropa
+      "CALCETIN", "ZAPATOS", "CAMISETA", "PANTALON", "VESTIDO", "SOMBRERO", "BUFANDA",
+      "GUANTES", "CHAMARRA", "PIJAMA", "BOTAS", "FALDA", "SUETER", "CINTURON", "LENTES",
+      // Música
+      "GUITARRA", "TAMBOR", "FLAUTA", "TROMPETA", "PANDERO", "MARACAS", "VIOLIN", "PIANO",
+      "XILOFONO", "ARMONICA", "MUSICAL", "ORQUESTA", "ACORDEON",
+      // Cuerpo
+      "CABEZA", "CUELLO", "HOMBRO", "CODO", "RODILLA", "TOBILLO", "GARGANTA", "ESPALDA",
+      "ESTOMAGO", "CORAZON", "PULMONES", "CEREBRO", "LENGUA", "MEJILLA", "CEJAS", "DIENTES",
+      "CADERA",
+      // Lugares
+      "MERCADO", "TIENDA", "HOSPITAL", "BOMBEROS", "PANADERIA", "FRUTERIA", "LIBRERIA",
+      "PAPELERIA", "ZAPATERIA", "PLAZA", "IGLESIA", "CINE", "PARQUE", "GRANJA",
+      // Más palabras
+      "PALOMITAS", "PERIQUITO", "INGENIERO", "PACIENCIA", "DIVERSION", "ESPAGUETI",
+      // Especiales
+      "TEAMO", "CHICHAR",
     ],
   },
   {
-    // Nivel 5: frases cortas (sin espacios dentro de la sopa)
+    // Nivel 5: hasta 10 letras
     size: 10,
     count: 7,
     directions: TODAS,
     words: [
-      "EL SOL",
-      "LA LUNA",
-      "MI CASA",
-      "MI AMIGO",
-      "MI MAESTRA",
-      "BUEN DIA",
-      "A JUGAR",
-      "UN ABRAZO",
-      "A LA RONDA",
-      "MI NOMBRE",
-      "TE AMO",
-      "CHICHAR",
+      // Escuela
+      "PLASTILINA", "RECTANGULO", "BIBLIOTECA", "ABECEDARIO", "CALENDARIO", "MATEMATICA",
+      "ESCRITORIO", "SACAPUNTAS", "ESTUDIANTE", "PLANEACION", "EVALUACION",
+      "DESARROLLO", "PSICOLOGIA", "MOTRICIDAD", "CURIOSIDAD", "HONESTIDAD",
+      // Animales
+      "MURCIELAGO", "DINOSAURIO", "ESCARABAJO", "CHINCHILLA", "ORANGUTAN", "ARMADILLO",
+      "COLIBRI", "SALAMANDRA", "ESCORPION", "GUACAMAYA", "CABALLITO", "GOLONDRINA",
+      "ALACRAN", "TARANTULA", "CUCARACHA", // Oficios
+      "CARPINTERO", "ASTRONAUTA", "ARQUITECTO", "PERIODISTA", "BOMBEROS", "ELECTRICO",
+      "ESCULTOR", "BIOLOGO", "QUIMICO", "FISICO", "CIRUJANO", "DOCTOR", "PROFESOR",
+      "ENTRENADOR", "CAMARERO", "PASTELERO",
+      // Transportes
+      "AMBULANCIA", "MOTONETA", "TELEFERICO", "CAMIONETA", "LANCHA", "VELERO", "CARRETA",
+      "PARACAIDAS", "PATINETA", "TRANVIA", "METROBUS", "TAXI", "TRAILER",
+      // Aparatos
+      "TELEVISION", "MICROONDAS", "TERMOMETRO", "TELESCOPIO", "LICUADORA",
+      "VENTILADOR", "TELEFONO", "CAMARA", "RELOJ", "RADIO",
+      "LINTERNA", "BATERIA", "CARGADOR",
+      // Tiendas
+      "CARNICERIA", "JUGUETERIA", "PESCADERIA", "FARMACIA", "HELADERIA",
+      "PASTELERIA", "FLORERIA", "VERDULERIA", "ABARROTES", // Naturaleza
+      "NATURALEZA", "ATMOSFERA", "INUNDACION", "PLANETARIO", "ECOSISTEMA", "ASTRONOMIA",
+      "UNIVERSO", "GALAXIA", "PLANETA", "SATELITE", "COMETA", "ASTEROIDE",
+      "VOLCANES", "CORDILLERA", "ACANTILADO", "PENINSULA",
+      // Especiales
+      "TEAMO", "CHICHAR",
     ],
   },
   {
-    // Nivel 6 en adelante: frases largas
+    // Nivel 6 en adelante: palabras largas (hasta 13 letras)
     size: 13,
     count: 8,
     directions: TODAS,
     words: [
-      "ME GUSTA JUGAR",
-      "BUENOS DIAS",
-      "HOLA AMIGOS",
-      "VAMOS AL PATIO",
-      "EL ABECEDARIO",
-      "LOS NUMEROS",
-      "PINTAMOS HOY",
-      "SALTO Y CORRO",
-      "A LA RONDA",
-      "MI NOMBRE",
-      "TE AMO",
-      "CHICHAR",
+      // Transportes y animales
+      "HELICOPTERO", "MOTOCICLETA", "VETERINARIO", "ROMPECABEZAS", "HIPOPOTAMO",
+      "RINOCERONTE", "CHIMPANCE", "ORNITORRINCO", "CUENTACUENTOS", "ESCARABAJO",
+      "MURCIELAGO", "DINOSAURIO", "ARMADILLO", // Aprendizaje
+      "COMUNICACION", "COORDINACION", "PENSAMIENTO", "CONOCIMIENTO", "APRENDIZAJE",
+      "OBSERVACION", "EXPLORACION", "CONVIVENCIA", "COLABORACION", "SOLIDARIDAD",
+      "GENEROSIDAD", "CREATIVIDAD", "EXPERIMENTO", "INVESTIGACION", "PARTICIPACION",
+      "ORGANIZACION", "ESTIMULACION", "PRONUNCIACION", "PSICOMOTRIZ", "ACTIVIDADES",
+      "EVALUACION", "DESARROLLO", "IMAGINACION", "VOCABULARIO", "MATEMATICAS",
+      // Aparatos
+      "COMPUTADORA", "REFRIGERADOR", "ELECTRICIDAD", "MICROSCOPIO", "CALCULADORA",
+      "ENCICLOPEDIA", "DICCIONARIO", "ELECTRICISTA", "LABORATORIO", "TELEVISION",
+      "MICROONDAS", "TERMOMETRO", "TELESCOPIO", "BINOCULARES", // Ciencias y naturaleza
+      "ASTRONOMIA", "METEOROLOGIA", "GEOGRAFIA", "BIOLOGIA", "HISTORIA", "CIENCIAS",
+      "NATURALEZA", "AMBIENTE", "RECICLAJE", "CONTAMINACION", "SUSTENTABLE", "BIODIVERSIDAD",
+      "ECOSISTEMA", "FOTOSINTESIS", "CONSTELACION", "GRAVEDAD", "ATMOSFERA", "INUNDACION",
+      "ERUPCION", "TORNADO", "PLANETARIO", "ARQUEOLOGIA", "PALEONTOLOGO", "CARTOGRAFIA",
+      // Valores y emociones
+      "RESPONSABLE", "TOLERANCIA", "AMABILIDAD", "GRATITUD", "SOLIDARIO", "HONESTIDAD", "CURIOSIDAD", "FELICIDAD", "ALEGRIA", "EMOCIONES", "SENTIMIENTOS",
+      "CONFIANZA", // Especiales
+      "TEAMO", "CHICHAR",
     ],
   },
 ];
