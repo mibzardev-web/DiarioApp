@@ -8,7 +8,6 @@ import {
   Alert,
   Modal,
   KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
@@ -164,7 +163,7 @@ const AlumnosScreen = ({ navigation }) => {
       >
         <KeyboardAvoidingView
           style={styles.modalBackdrop}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior="padding"
         >
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Editar nombre</Text>

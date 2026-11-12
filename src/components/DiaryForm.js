@@ -11,6 +11,8 @@ import {
 } from "react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useHeaderHeight } from "@react-navigation/elements";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
@@ -54,6 +56,9 @@ export const EMPTY_DIARY = {
   registros: "",
 };
 
+// Alto aproximado de la etiqueta que va sobre cada campo (texto + margen)
+const LABEL_HEIGHT = 26;
+
 // ¿Hay texto escrito distinto al inicial? (la fecha sola no cuenta como borrador)
 const hasChanges = (form, initial) =>
   FIELDS.some((f) => f.key !== "fecha" && form[f.key] !== initial[f.key]);
@@ -68,6 +73,8 @@ const DiaryForm = ({ initialValues, onSave, submitLabel = "Guardar", draftKey })
   const Palette = useTheme();
   const styles = useMemo(() => makeStyles(Palette), [Palette]);
   const navigation = useNavigation();
+  const headerHeight = useHeaderHeight();
+  const insets = useSafeAreaInsets();
 
   const initial = useRef({ ...EMPTY_DIARY, ...initialValues }).current;
   const [form, setForm] = useState(initial);
@@ -75,6 +82,10 @@ const DiaryForm = ({ initialValues, onSave, submitLabel = "Guardar", draftKey })
   const [students, setStudents] = useState([]);
   const [focusedKey, setFocusedKey] = useState("alumnos");
   const saved = useRef(false);
+  const scrollRef = useRef(null);
+  const scrollY = useRef(0);
+  const viewportH = useRef(0);
+  const groupY = useRef({});
   const setShowTabBar = useGlobalState((s) => s.setShowTabBar);
 
   // Oculta los tabs mientras esta pantalla está abierta
@@ -120,6 +131,19 @@ const DiaryForm = ({ initialValues, onSave, submitLabel = "Guardar", draftKey })
     return () => clearTimeout(id);
   }, [form, draftKey, initial]);
 
+  // Los campos no se desplazan por dentro: crecen con el texto y la pantalla es la que
+  // hace scroll. En iPhone el campo no mueve la pantalla al crecer, así que si el final
+  // del campo que se está escribiendo queda tapado se baja lo necesario para verlo.
+  const keepVisible = (key, contentHeight) => {
+    if (Platform.OS !== "ios" || key !== focusedKey) return;
+    const field = FIELDS.find((f) => f.key === key);
+    const inputHeight = Math.max(contentHeight + 20, field.tall ? 200 : 90);
+    const bottom = (groupY.current[key] ?? 0) + LABEL_HEIGHT + inputHeight + 24;
+    if (bottom > scrollY.current + viewportH.current) {
+      scrollRef.current?.scrollTo({ y: bottom - viewportH.current, animated: false });
+    }
+  };
+
   const setField = (key, value) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -159,9 +183,12 @@ const DiaryForm = ({ initialValues, onSave, submitLabel = "Guardar", draftKey })
   const targetField = FIELDS.find((f) => f.key === focusedKey);
 
   return (
+    // En Android la app se dibuja de borde a borde y el teclado ya no encoge la pantalla,
+    // así que también se deja espacio con "padding" (descontando el header de arriba).
     <KeyboardAvoidingView
       style={styles.flex}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior="padding"
+      keyboardVerticalOffset={headerHeight}
     >
       {students.length > 0 && (
         <View style={styles.studentsBar}>
@@ -191,11 +218,20 @@ const DiaryForm = ({ initialValues, onSave, submitLabel = "Guardar", draftKey })
       )}
 
       <ScrollView
-        contentContainerStyle={styles.container}
+        ref={scrollRef}
+        onScroll={(e) => (scrollY.current = e.nativeEvent.contentOffset.y)}
+        scrollEventThrottle={16}
+        onLayout={(e) => (viewportH.current = e.nativeEvent.layout.height)}
+        contentContainerStyle={[styles.container, { paddingBottom: 700 + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       >
         {FIELDS.map((f) => (
-          <View key={f.key} style={styles.group}>
+          <View
+            key={f.key}
+            style={styles.group}
+            onLayout={(e) => (groupY.current[f.key] = e.nativeEvent.layout.y)}
+          >
             <Text style={styles.label}>{f.label}</Text>
             <TextInput
               style={[
@@ -208,6 +244,12 @@ const DiaryForm = ({ initialValues, onSave, submitLabel = "Guardar", draftKey })
               onChangeText={(t) => setField(f.key, t)}
               onFocus={() => setFocusedKey(f.key)}
               multiline={f.multiline}
+              scrollEnabled={false}
+              onContentSizeChange={
+                f.multiline
+                  ? (e) => keepVisible(f.key, e.nativeEvent.contentSize.height)
+                  : undefined
+              }
               textAlignVertical={f.multiline ? "top" : "center"}
               placeholder={f.label}
               placeholderTextColor={Palette.muted}
